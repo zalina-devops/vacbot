@@ -332,8 +332,6 @@ python src/fetcher.py
     └───src
             analyzer.py
             fetcher.py
-
-
 ```
 
 ---
