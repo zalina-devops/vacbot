@@ -287,21 +287,18 @@ python src/fetcher.py
 # 🗂️ Структура проекта
 
 ```text
-────vacbot
+└───vacbot
     │   .env
     │   .env.example
     │   .gitignore
     │   Dockerfile
     │   LICENSE
     │   main.py
-    │   migrate.py
-    │   parse_vacancies.py
-    │   profile.json
     │   README.md
     │   render.yaml
     │   requirements.txt
     │   run.py
-    │   start_flask.py
+    │   start_bot.py
     │   telegram_bot.py
     │
     ├───app
@@ -319,7 +316,7 @@ python src/fetcher.py
     │   │   │
     │   │   └───js
     │   │           app.js
-    │   │           
+    │   │
     │   └───templates
     │           base.html
     │           cover_letter.html
@@ -335,6 +332,7 @@ python src/fetcher.py
     └───src
             analyzer.py
             fetcher.py
+
 
 ```
 
