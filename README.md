@@ -287,27 +287,55 @@ python src/fetcher.py
 # 🗂️ Структура проекта
 
 ```text
-vacbot/
-├── app/
-│   ├── __init__.py
-│   ├── config.py
-│   ├── models.py
-│   ├── routes.py
-│   ├── ai_agent.py
-│   ├── telegram_bot.py
-│   ├── static/
-│   └── templates/
-├── src/
-│   ├── fetcher.py
-│   └── analyzer.py
-├── data/
-├── requirements.txt
-├── Dockerfile
-├── docker-compose.yml
-├── run.py
-├── telegram_bot.py
-├── main.py
-└── .env.example
+────vacbot
+    │   .env
+    │   .env.example
+    │   .gitignore
+    │   Dockerfile
+    │   LICENSE
+    │   main.py
+    │   migrate.py
+    │   parse_vacancies.py
+    │   profile.json
+    │   README.md
+    │   render.yaml
+    │   requirements.txt
+    │   run.py
+    │   start_flask.py
+    │   telegram_bot.py
+    │
+    ├───app
+    │   │   ai_agent.py
+    │   │   config.py
+    │   │   models.py
+    │   │   parser_service.py
+    │   │   routes.py
+    │   │   scheduler.py
+    │   │   __init__.py
+    │   │
+    │   ├───static
+    │   │   ├───css
+    │   │   │       style.css
+    │   │   │
+    │   │   └───js
+    │   │           app.js
+    │   │           
+    │   └───templates
+    │           base.html
+    │           cover_letter.html
+    │           index.html
+    │           profile.html
+    │           search_queries.html
+    │           stopwords.html
+    │           vacancies.html
+    │
+    ├───data
+    │       .gitkeep
+    │
+    └───src
+            analyzer.py
+            fetcher.py
+
 ```
 
 ---
