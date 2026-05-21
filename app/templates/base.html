@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}VacBot{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+  <nav class="navbar">
+    <div class="nav-left">
+      <div class="logo">
+        <span class="logo-pill">VacBot</span>
+        <span class="logo-sub">карьерный трекер</span>
+      </div>
+      <div class="nav-tabs">
+        <a href="{{ url_for('main.index') }}" class="ntab {% if request.endpoint == 'main.index' %}active{% endif %}">Канбан</a>
+        <a href="{{ url_for('main.vacancies_page') }}" class="ntab {% if request.endpoint == 'main.vacancies_page' %}active{% endif %}">Вакансии</a>
+        <a href="{{ url_for('main.profile_page') }}" class="ntab {% if request.endpoint == 'main.profile_page' %}active{% endif %}">Профиль</a>
+        <a href="{{ url_for('main.cover_letter_page') }}" class="ntab {% if request.endpoint == 'main.cover_letter_page' %}active{% endif %}">Сопроводительное письмо</a>
+        <a href="{{ url_for('main.search_queries_page') }}" class="ntab {% if request.endpoint == 'main.search_queries_page' %}active{% endif %}">Поисковые запросы</a>
+        <a href="{{ url_for('main.stopwords_page') }}" class="ntab {% if request.endpoint == 'main.stopwords_page' %}active{% endif %}">Стоп-слова</a>
+      </div>
+    </div>
+    <div class="nav-right">
+      <span class="nav-time" id="last-update">загрузка...</span>
+      <button class="nav-btn" onclick="runParser()">↻ Обновить</button>
+    </div>
+  </nav>
+
+  <main>
+    {% block content %}{% endblock %}
+  </main>
+
+  <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

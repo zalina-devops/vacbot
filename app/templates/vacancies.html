@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}Вакансии — VacBot{% endblock %}
+
+{% block content %}
+<div class="page-content">
+  <div class="toolbar">
+    <select class="tb-select" onchange="applyFilter()" id="f-direction">
+      <option value="">Все направления</option>
+      {% for d in directions %}
+      <option value="{{ d }}" {% if d == current_direction %}selected{% endif %}>{{ d }}</option>
+      {% endfor %}
+    </select>
+    <select class="tb-select" onchange="applyFilter()" id="f-source">
+      <option value="">Все источники</option>
+      {% for s in sources %}
+      <option value="{{ s }}" {% if s == current_source %}selected{% endif %}>{{ s }}</option>
+      {% endfor %}
+    </select>
+    <input class="tb-input" id="f-search" placeholder="Поиск..." value="{{ search }}" oninput="applyFilter()">
+    <div class="tb-sep"></div>
+    <span class="tb-count">{{ vacancies | length }} вакансий</span>
+  </div>
+
+  <div class="cards-grid">
+    {% for v in vacancies %}
+    <div class="vcard {% if v.starred %}starred{% endif %}" data-id="{{ v.id }}">
+        <div class="vc-content">
+            <div class="vc-header">
+                <div class="vc-title">{{ v.title }}</div>
+                <button class="star-btn" onclick="toggleStar('{{ v.id }}', this)">{{ "★" if v.starred else "☆" }}</button>
+            </div>
+            <div class="vc-company">{{ v.company }}</div>
+            <div class="vc-badges">
+                <span class="badge b-direction">{{ v.direction or "Другое" }}</span>
+                <span class="badge b-source">{{ v.source }}</span>
+                {% if v.salary != "не указана" %}
+                <span class="badge b-salary">{{ v.salary }}</span>
+                {% endif %}
+            </div>
+            {% if v.snippet_requirement %}
+            <div class="vc-snippet">{{ v.snippet_requirement[:150] }}{% if v.snippet_requirement|length > 150 %}…{% endif %}</div>
+            {% endif %}
+            {% if v.salary and v.salary != "не указана" %}
+            <div class="vc-salary">{{ v.salary }}</div>
+            {% endif %}
+        </div>
+        <div class="vc-actions">
+            <div class="vc-actions-row">
+                <a href="{{ v.url }}" target="_blank" class="act-btn act-open">🔗 Открыть</a>
+                <button class="act-btn act-letter" onclick="generateAICoverLetter('{{ v.id }}')">✉️ Письмо</button>
+            </div>
+            <div class="vc-actions-row">
+                <button class="act-btn act-adapt" onclick="adaptResume('{{ v.id }}')">📄 Адаптировать</button>
+                <button class="act-btn act-delete" onclick="deleteVacancy('{{ v.id }}')">🗑️ Удалить</button>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <p style="color:var(--text2);padding:2rem 0">Вакансий не найдено. Попробуй изменить фильтры или обнови парсер.</p>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function applyFilter() {
+  const d = document.getElementById('f-direction').value;
+  const s = document.getElementById('f-source').value;
+  const q = document.getElementById('f-search').value;
+  const params = new URLSearchParams();
+  if (d) params.set('direction', d);
+  if (s) params.set('source', s);
+  if (q) params.set('search', q);
+  window.location.href = '/vacancies?' + params.toString();
+}
+</script>
+{% endblock %}

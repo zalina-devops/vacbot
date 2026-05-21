@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}Поисковые запросы — VacBot{% endblock %}
+
+{% block content %}
+<div class="page-content">
+  <h1 style="margin-bottom: 10px;">Поисковые запросы для парсинга</h1>
+  <p style="margin-bottom: 15px; color: var(--text2);">Каждая строка — один запрос. Парсер будет искать вакансии по всем этим запросам.</p>
+  <form method="POST">
+    <textarea name="queries" rows="10" class="tb-input" style="width: 100%; font-family: monospace;">{{ queries | join('\n') }}</textarea>
+    <button type="submit" class="nav-btn" style="margin-top: 15px;">Сохранить запросы</button>
+  </form>
+</div>
+{% endblock %}

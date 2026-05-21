@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% block title %}Стоп-слова — VacBot{% endblock %}
+
+{% block content %}
+<div class="page-content">
+  <h1 style="margin-bottom: 20px;">Стоп-слова для анализа вакансий</h1>
+  <p style="color: var(--text2); margin-bottom: 20px;">
+    Слова из этого списка будут исключены из требований вакансий при анализе.
+  </p>
+
+  <div class="toolbar" style="display: flex; gap: 10px; align-items: center; margin-bottom: 20px;">
+    <input type="text" id="newWord" placeholder="Новое слово" class="tb-input" style="flex: 1;">
+    <select id="newCategory" class="tb-select">
+      <option value="general">Общее</option>
+      <option value="tech">Техническое</option>
+      <option value="soft">Софт-скиллы</option>
+    </select>
+    <button id="addWordBtn" class="nav-btn">➕ Добавить</button>
+  </div>
+
+  <div id="stopwordsList" style="display: flex; flex-wrap: wrap; gap: 8px;">
+    <!-- сюда будут вставлены карточки стоп-слов -->
+  </div>
+</div>
+
+<script>
+  let stopwords = [];
+
+  async function loadStopwords() {
+    const res = await fetch('/api/stopwords');
+    stopwords = await res.json();
+    renderStopwords();
+  }
+
+  function renderStopwords() {
+    const container = document.getElementById('stopwordsList');
+    container.innerHTML = '';
+    stopwords.forEach(sw => {
+      const card = document.createElement('div');
+      card.className = 'badge';
+      card.style.cssText = 'padding: 6px 10px; background: var(--bg3); border: 1px solid var(--border); cursor: pointer; transition: all 0.2s;';
+      card.textContent = `${sw.word} (${sw.category})`;
+      card.title = 'Нажмите, чтобы удалить';
+      card.onclick = () => deleteStopword(sw.id);
+      container.appendChild(card);
+    });
+    if (stopwords.length === 0) {
+      container.innerHTML = '<div style="color: var(--text2);">Список пуст. Добавьте стоп-слова выше.</div>';
+    }
+  }
+
+  async function addStopword() {
+    const input = document.getElementById('newWord');
+    const word = input.value.trim();
+    if (!word) return;
+    const category = document.getElementById('newCategory').value;
+    try {
+      const res = await fetch('/api/stopwords/add', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ word, category })
+      });
+      if (res.ok) {
+        input.value = '';
+        await loadStopwords();
+        showToast('Стоп-слово добавлено');
+      } else {
+        const err = await res.json();
+        showToast(err.error || 'Ошибка', 'error');
+      }
+    } catch (err) {
+      console.error(err);
+      showToast('Ошибка сети', 'error');
+    }
+  }
+
+  async function deleteStopword(id) {
+    if (!confirm('Удалить это стоп-слово?')) return;
+    try {
+      const res = await fetch(`/api/stopwords/delete/${id}`, { method: 'POST' });
+      if (res.ok) {
+        await loadStopwords();
+        showToast('Стоп-слово удалено');
+      }
+    } catch (err) {
+      showToast('Ошибка удаления', 'error');
+    }
+  }
+
+  document.getElementById('addWordBtn').addEventListener('click', addStopword);
+  document.getElementById('newWord').addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') addStopword();
+  });
+
+  loadStopwords();
+</script>
+{% endblock %}

@@ -1,0 +1,18 @@
+# HTTP и парсинг
+requests==2.31.0
+beautifulsoup4==4.12.3
+
+# Web-фреймворк
+flask==3.0.3
+
+# БД
+flask-sqlalchemy==3.1.1
+psycopg2-binary==2.9.9
+
+# Утилиты
+python-dotenv==1.0.0
+
+anthropic==0.23.1
+
+python-telegram-bot==20.7
+apscheduler==3.10.4

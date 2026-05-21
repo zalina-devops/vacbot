@@ -1,0 +1,161 @@
+{% extends "base.html" %}
+{% block title %}Профиль — VacBot{% endblock %}
+
+{% block content %}
+<div class="page-content">
+  <div style="max-width: 800px; margin: 0 auto;">
+    <h1 style="margin-bottom: 10px;">Профиль пользователя</h1>
+    <p style="color: var(--text2); margin-bottom: 30px;">
+      Профиль используется для генерации адаптированного резюме и ранжирования вакансий.
+    </p>
+
+    <form id="profileForm" style="background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px;">
+      <div style="margin-bottom: 15px;">
+        <label>ФИО</label>
+        <input type="text" name="name" class="tb-input" style="width: 100%;" required>
+      </div>
+      <div style="margin-bottom: 15px;">
+        <label>Специальность</label>
+        <input type="text" name="specialty" class="tb-input" style="width: 100%;">
+        <div class="form-text" style="color: var(--text2); font-size: 11px;">Например: 09.02.07 Информационные системы и программирование</div>
+      </div>
+      <div style="margin-bottom: 15px;">
+        <label>Образование</label>
+        <input type="text" name="education" class="tb-input" style="width: 100%;">
+      </div>
+      <div style="margin-bottom: 15px;">
+        <label>Опыт работы</label>
+        <input type="text" name="experience" class="tb-input" style="width: 100%;">
+      </div>
+      <div style="margin-bottom: 15px;">
+        <label>Навыки (через запятую)</label>
+        <textarea name="skills" rows="3" class="tb-input" style="width: 100%;" required></textarea>
+      </div>
+      <div style="margin-bottom: 15px;">
+        <label>Языки (через запятую)</label>
+        <input type="text" name="languages" class="tb-input" style="width: 100%;">
+      </div>
+      <div style="margin-bottom: 15px;">
+        <label>Предпочтительные направления (через запятую)</label>
+        <input type="text" name="preferred_directions" class="tb-input" style="width: 100%;">
+        <div class="form-text" style="color: var(--text2);">Например: QA, Python-разработка, Техподдержка</div>
+      </div>
+      <div style="margin-bottom: 15px;">
+        <label>Ожидаемая зарплата</label>
+        <input type="text" name="expected_salary" class="tb-input" style="width: 100%;">
+      </div>
+      <div style="margin-bottom: 15px;">
+        <label>О себе</label>
+        <textarea name="about" rows="3" class="tb-input" style="width: 100%;"></textarea>
+      </div>
+      <div style="display: flex; gap: 10px; justify-content: space-between;">
+        <button type="submit" class="nav-btn" style="background: var(--bg3);">💾 Сохранить профиль</button>
+        <button type="button" id="loadDefaultBtn" class="nav-btn">↺ Загрузить по умолчанию</button>
+      </div>
+    </form>
+
+    <!-- Блок статистики совпадений -->
+    <div style="margin-top: 30px; background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px;">
+      <h3 style="margin-bottom: 15px;">Статистика совпадений</h3>
+      <div id="matchStats">
+        <div style="color: var(--text2);">Загрузка...</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Загрузка профиля
+  async function loadProfile() {
+    const resp = await fetch('/api/profile');
+    const data = await resp.json();
+    document.querySelector('[name="name"]').value = data.name;
+    document.querySelector('[name="specialty"]').value = data.specialty;
+    document.querySelector('[name="education"]').value = data.education;
+    document.querySelector('[name="experience"]').value = data.experience;
+    document.querySelector('[name="skills"]').value = data.skills;
+    document.querySelector('[name="languages"]').value = data.languages;
+    document.querySelector('[name="preferred_directions"]').value = data.preferred_directions;
+    document.querySelector('[name="expected_salary"]').value = data.expected_salary;
+    document.querySelector('[name="about"]').value = data.about;
+  }
+
+  // Сохранение профиля
+  document.getElementById('profileForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+    const profile = {
+      name: formData.get('name'),
+      specialty: formData.get('specialty'),
+      education: formData.get('education'),
+      experience: formData.get('experience'),
+      skills: formData.get('skills'),
+      languages: formData.get('languages'),
+      preferred_directions: formData.get('preferred_directions'),
+      expected_salary: formData.get('expected_salary'),
+      about: formData.get('about')
+    };
+    try {
+      const resp = await fetch('/api/profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(profile)
+      });
+      if (resp.ok) {
+        showToast('Профиль сохранён');
+        loadProfile(); // перезагрузить (на случай, если бэк добавил что-то)
+      } else {
+        showToast('Ошибка сохранения', 'error');
+      }
+    } catch (err) {
+      showToast('Ошибка сети', 'error');
+    }
+  });
+
+  // Загрузка профиля по умолчанию
+  document.getElementById('loadDefaultBtn').addEventListener('click', async () => {
+    if (!confirm('Загрузить профиль по умолчанию? Текущие изменения будут потеряны.')) return;
+    try {
+      const resp = await fetch('/api/profile/default', { method: 'POST' });
+      if (resp.ok) {
+        showToast('Профиль по умолчанию загружен');
+        loadProfile();
+      } else {
+        showToast('Ошибка загрузки', 'error');
+      }
+    } catch (err) {
+      showToast('Ошибка сети', 'error');
+    }
+  });
+
+  // Загрузка статистики совпадений
+  async function loadMatchStats() {
+    try {
+      const resp = await fetch('/api/stats');
+      const stats = await resp.json();
+      const total = stats.total || 0;
+      const byDirection = stats.by_direction || {};
+      const topDirections = Object.entries(byDirection)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5);
+      let html = `<div style="font-size: 14px;">Всего вакансий: <strong>${total}</strong></div>`;
+      if (topDirections.length) {
+        html += `<div style="margin-top: 10px;"><strong>Топ направлений:</strong><ul>`;
+        topDirections.forEach(([dir, count]) => {
+          html += `<li>${dir}: ${count}</li>`;
+        });
+        html += `</ul></div>`;
+      } else {
+        html += `<div style="margin-top: 10px; color: var(--text2);">Нет данных о направлениях</div>`;
+      }
+      document.getElementById('matchStats').innerHTML = html;
+    } catch (err) {
+      console.error(err);
+      document.getElementById('matchStats').innerHTML = '<div style="color: var(--text2);">Ошибка загрузки статистики</div>';
+    }
+  }
+
+  loadProfile();
+  loadMatchStats();
+</script>
+{% endblock %}

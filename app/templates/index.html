@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+{% block title %}Канбан — VacBot{% endblock %}
+
+{% block content %}
+<!-- Воронка -->
+<div class="funnel-bar">
+  <div class="funnel-step">
+    <div class="fs-n" style="color:#85B7EB">{{ funnel.total }}</div>
+    <div class="fs-l">найдено</div>
+  </div>
+  <div class="fs-arrow">›</div>
+  <div class="funnel-step">
+    <div class="fs-n" style="color:#EF9F27">{{ funnel.starred }}</div>
+    <div class="fs-l">избранное</div>
+  </div>
+  <div class="fs-arrow">›</div>
+  <div class="funnel-step">
+    <div class="fs-n" style="color:#85B7EB">{{ funnel.applied }}</div>
+    <div class="fs-l">отклики</div>
+  </div>
+  <div class="fs-arrow">›</div>
+  <div class="funnel-step">
+    <div class="fs-n" style="color:#5DCAA5">{{ funnel.interview }}</div>
+    <div class="fs-l">собеседования</div>
+  </div>
+  <div class="fs-arrow">›</div>
+  <div class="funnel-step">
+    <div class="fs-n" style="color:#F0997B">{{ funnel.rejected }}</div>
+    <div class="fs-l">отказы</div>
+  </div>
+  <div class="fs-arrow">›</div>
+  <div class="funnel-step">
+    <div class="fs-n" style="color:#97C459">{{ funnel.offer }}</div>
+    <div class="fs-l">офферы</div>
+  </div>
+</div>
+
+{% if funnel.applied > 0 and funnel.rejected > funnel.interview %}
+<div class="insight-bar">
+  <span class="insight-icon">💡</span>
+  <span class="insight-text">Много отказов до собеседования — возможно, резюме не адаптировано под вакансию</span>
+  <a href="#" class="insight-action">Что улучшить?</a>
+</div>
+{% endif %}
+
+<!-- Канбан -->
+<div class="kanban-wrap">
+  <div class="kanban">
+
+    {% set columns = [
+      ("new",       "Новые",             "#85B7EB", "#0d1f35"),
+      ("starred",   "Избранное",         "#EF9F27", "#2e1f04"),
+      ("applied",   "Отклик отправлен",  "#85B7EB", "#0d1f35"),
+      ("interview", "Собеседование",     "#5DCAA5", "#0a2e22"),
+      ("rejected",  "Отказ",             "#F0997B", "#2e1208"),
+      ("offer",     "Оффер",             "#97C459", "#0d2910"),
+    ] %}
+
+    {% for status, label, color, bg in columns %}
+    {% set col_cards = vacancies | selectattr("board_status", "equalto", status) | list %}
+    <div class="col" data-status="{{ status }}">
+      <div class="col-header" style="background:{{ bg }}">
+        <span class="col-title" style="color:{{ color }}">{{ label }}</span>
+        <span class="col-cnt" style="background:{{ bg }};color:{{ color }}">{{ col_cards | length }}</span>
+      </div>
+      <div class="col-cards" id="col-{{ status }}">
+        {% for v in col_cards %}
+        <div class="kcard {% if v.starred %}starred{% endif %}"
+             data-id="{{ v.id }}"
+             data-status="{{ v.board_status }}"
+             draggable="true">
+          <div class="kc-header">
+            <div class="kc-title">{{ v.title }}</div>
+            <button class="star-btn {% if v.starred %}active{% endif %}"
+                    onclick="toggleStar('{{ v.id }}', this)">
+              {{ "★" if v.starred else "☆" }}
+            </button>
+          </div>
+          <div class="kc-company">
+            <span>{{ v.company }}</span>
+            <span class="match-badge
+                {% if v.match_percent >= 70 %}high
+                {% elif v.match_percent >= 40 %}medium
+                {% else %}low{% endif %}">
+                {{ v.match_percent }}%
+            </span>
+          </div>
+          <div class="kc-badges">
+            <span class="badge b-direction">{{ v.direction or "Другое" }}</span>
+            <span class="badge b-source">{{ v.source }}</span>
+            {% if v.salary != "не указана" %}
+            <span class="badge b-salary">{{ v.salary }}</span>
+            {% endif %}
+          </div>
+          <div class="kc-actions">
+              <div class="kc-actions-row">
+                  {% if v.url %}
+                  <a href="{{ v.url }}" target="_blank" class="kca kca-open">Открыть</a>
+                  {% endif %}
+                  <button class="kca kca-delete" onclick="deleteVacancy('{{ v.id }}')">Удалить</button>
+              </div>
+          </div>
+          <div class="kc-status-row">
+            <select class="status-select" onchange="updateStatus('{{ v.id }}', this.value)">
+              <option value="new"       {% if v.board_status == "new" %}selected{% endif %}>Новая</option>
+              <option value="starred"   {% if v.board_status == "starred" %}selected{% endif %}>Избранное</option>
+              <option value="applied"   {% if v.board_status == "applied" %}selected{% endif %}>Отклик</option>
+              <option value="interview" {% if v.board_status == "interview" %}selected{% endif %}>Собеседование</option>
+              <option value="rejected"  {% if v.board_status == "rejected" %}selected{% endif %}>Отказ</option>
+              <option value="offer"     {% if v.board_status == "offer" %}selected{% endif %}>Оффер</option>
+            </select>
+          </div>
+        </div>
+        {% else %}
+        <div class="col-empty">пусто</div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endfor %}
+
+  </div>
+</div>
+{% endblock %}

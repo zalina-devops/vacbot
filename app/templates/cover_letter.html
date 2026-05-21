@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Сопроводительное письмо — VacBot{% endblock %}
+
+{% block content %}
+<div class="page-content">
+  <h1 style="margin-bottom: 10px;">Шаблон сопроводительного письма</h1>
+  <p style="margin-bottom: 15px; color: var(--text2);">
+    Используйте переменные: <code>{title}</code>, <code>{company}</code>, <code>{name}</code>, <code>{skills}</code> и др.
+  </p>
+  <form method="POST">
+    <textarea name="template" rows="15" class="tb-input" style="width: 100%;">{{ template }}</textarea>
+    <button type="submit" class="nav-btn" style="margin-top: 15px;">Сохранить шаблон</button>
+  </form>
+</div>
+{% endblock %}
