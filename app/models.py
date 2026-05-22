@@ -40,7 +40,6 @@ class Vacancy(db.Model):
             'snippet_responsibility': self.snippet_responsibility,
             'direction': self.direction,
             'created_at': self.created_at.isoformat() if self.created_at else None,
-            # Поля из BoardCard
             'board_status': board_card.status if board_card else 'new',
             'starred': getattr(board_card, 'starred', False) if board_card else False,
             'postponed': board_card.is_postponed if board_card else False,

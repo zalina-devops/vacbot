@@ -1,14 +1,26 @@
 # telegram_bot.py
 import asyncio
 import os
+import signal
+import warnings
+from sqlalchemy import exc as sa_exc
+warnings.filterwarnings("ignore", category=sa_exc.SADeprecationWarning)
+
 from datetime import datetime
 from dotenv import load_dotenv
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
+from telegram.request import HTTPXRequest
 
 load_dotenv()
 
 BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+
+# ========== Настройки ==========
+REQUEST_TIMEOUT = 90  # секунд
+MAX_RETRIES = 10      # максимальное количество попыток переподключения
+RETRY_DELAY = 10      # секунд между попытками
+
 
 # Импортируем модели и функции из вашего проекта
 import sys
@@ -205,8 +217,8 @@ async def render_vacancy_page(query, title, context):
 
     app = create_app()
     with app.app_context():
-        match_percent = calculate_match_percentage(Vacancy.query.get(vac_id))
-        vac = Vacancy.query.get(vac_id)
+        match_percent = calculate_match_percentage(db.session.get(Vacancy, vac_id))
+        vac = db.session.get(Vacancy, vac_id)
         status = vac.to_dict().get('board_status', 'new') if vac else 'new'
 
     msg = f"*{title}*\n\n"
@@ -268,7 +280,11 @@ async def show_profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg += f"🎓 Специальность: {profile.specialty or '—'}\n"
     msg += f"💼 Навыки: {profile.skills or '—'}\n"
     msg += f"⭐ Предпочтения: {profile.preferred_directions or '—'}"
-    await query.message.edit_text(msg, parse_mode="Markdown", reply_markup=get_main_keyboard())
+
+    if query.message.text != msg:
+        await query.message.edit_text(msg, parse_mode="Markdown", reply_markup=get_main_keyboard())
+    else:
+        await query.answer("Профиль уже отображён")
 
 
 async def show_settings(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -417,23 +433,70 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await show_settings(update, context)
 
 
-# ========== Запуск бота ==========
 async def main():
-    app = Application.builder().token(BOT_TOKEN).build()
+    """Запуск бота с автоматическим переподключением"""
+    retry_count = 0
 
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("menu", menu))
-    app.add_handler(CommandHandler("stats", stats))
-    app.add_handler(CommandHandler("subscribe", subscribe))
-    app.add_handler(CommandHandler("unsubscribe", unsubscribe))
-    app.add_handler(CallbackQueryHandler(handle_callback))
+    while retry_count < MAX_RETRIES:
+        try:
+            print(f"🚀 Запуск Telegram-бота (попытка {retry_count + 1})...")
 
-    print("🚀 Telegram-бот запущен...")
-    await app.initialize()
-    await app.start()
-    await app.updater.start_polling(drop_pending_updates=True)
-    await asyncio.Event().wait()
+            request = HTTPXRequest(
+                connect_timeout=REQUEST_TIMEOUT,
+                read_timeout=REQUEST_TIMEOUT,
+                write_timeout=REQUEST_TIMEOUT,
+                pool_timeout=REQUEST_TIMEOUT
+            )
+
+            app = Application.builder().token(BOT_TOKEN).request(request).build()
+
+            # Регистрация обработчиков
+            app.add_handler(CommandHandler("start", start))
+            app.add_handler(CommandHandler("menu", menu))
+            app.add_handler(CommandHandler("stats", stats))
+            app.add_handler(CommandHandler("subscribe", subscribe))
+            app.add_handler(CommandHandler("unsubscribe", unsubscribe))
+            app.add_handler(CallbackQueryHandler(handle_callback))
+
+            await app.initialize()
+            await app.start()
+            await app.updater.start_polling(drop_pending_updates=True, timeout=REQUEST_TIMEOUT)
+
+            print("✅ Бот успешно запущен и работает!")
+            retry_count = 0  # сброс счётчика при успешном подключении
+
+            # Бесконечное ожидание с обработкой разрыва соединения
+            while True:
+                await asyncio.sleep(5)
+                # Проверка соединения (если бот отключился, вылетит исключение)
+                await app.bot.get_me()
+
+        except asyncio.TimeoutError:
+            print(f"⚠️ Таймаут соединения. Переподключение через {RETRY_DELAY} сек...")
+            retry_count += 1
+            await asyncio.sleep(RETRY_DELAY)
+
+        except Exception as e:
+            print(f"⚠️ Ошибка: {e}")
+            retry_count += 1
+            if retry_count < MAX_RETRIES:
+                print(f"   Переподключение через {RETRY_DELAY} сек... (попытка {retry_count + 1}/{MAX_RETRIES})")
+                await asyncio.sleep(RETRY_DELAY)
+            else:
+                print(f"❌ Не удалось подключиться после {MAX_RETRIES} попыток")
+                break
+
+    print("🛑 Бот остановлен")
 
 
 if __name__ == "__main__":
+    # Обработка Ctrl+C
+    def signal_handler(sig, frame):
+        print("\n🛑 Остановка бота...")
+        exit(0)
+
+
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
+
     asyncio.run(main())

@@ -31,7 +31,7 @@ def call_openrouter(prompt, model="openrouter/auto"):
 
 
 def adapt_resume(vacancy_id):
-    vacancy = Vacancy.query.get(vacancy_id)
+    vacancy = db.session.get(Vacancy, vacancy_id) # тута
     if not vacancy:
         return "Вакансия не найдена"
     profile = UserProfile.query.first()
@@ -66,7 +66,7 @@ def adapt_resume(vacancy_id):
 
 
 def generate_cover_letter(vacancy_id):
-    vacancy = Vacancy.query.get(vacancy_id)
+    vacancy = db.session.get(Vacancy, vacancy_id) # тута
     if not vacancy:
         return "Вакансия не найдена"
     profile = UserProfile.query.first()

@@ -96,22 +96,33 @@ def vacancies_page():
 
 @main.route("/api/card/<vacancy_id>/status", methods=["POST"])
 def update_status(vacancy_id: str):
-    """Поменять статус карточки на канбан-доске."""
+    """Меняет статус карточки на канбан-доске."""
     data = request.get_json()
     new_status = data.get("status")
+
+    # Добавляем 'starred' в список допустимых статусов
     valid_statuses = ["new", "starred", "applied", "interview", "rejected", "offer"]
     if new_status not in valid_statuses:
         return jsonify({"error": "invalid status"}), 400
+
+    # Проверяем что вакансия существует
     if not db.session.get(Vacancy, vacancy_id):
         return jsonify({"error": "vacancy not found"}), 404
+
     card = get_or_create_card(vacancy_id)
+
+    # Обработка статуса "избранное"
     if new_status == "starred":
         card.starred = True
+        card.status = "starred"  # ← ВАЖНО: устанавливаем и статус тоже
     else:
+        # Если выбираем любой другой статус, снимаем отметку "избранное"
         if card.starred:
             card.starred = False
         card.status = new_status
+
     db.session.commit()
+
     return jsonify({
         "ok": True,
         "id": vacancy_id,
@@ -119,13 +130,24 @@ def update_status(vacancy_id: str):
         "starred": card.starred
     })
 
+
 @main.route("/api/card/<vacancy_id>/star", methods=["POST"])
 def toggle_star(vacancy_id: str):
+    """Добавляет / убирает вакансию из избранного."""
     if not db.session.get(Vacancy, vacancy_id):
         return jsonify({"error": "vacancy not found"}), 404
+
     card = get_or_create_card(vacancy_id)
     card.starred = not card.starred
+
+    # Синхронизируем статус
+    if card.starred:
+        card.status = "starred"
+    elif card.status == "starred":
+        card.status = "new"
+
     db.session.commit()
+
     return jsonify({"ok": True, "starred": card.starred})
 
 @main.route("/api/card/<vacancy_id>/postpone", methods=["POST"])
