@@ -17,6 +17,11 @@
 
 *Drag & Drop, проценты совпадения, 6 статусов отклика*
 
+### Поиск вакансий
+![Поиск вакансий](docs/screenshots/02_parsing.png)
+
+*Процесс поиска вакансий*
+
 ### Список вакансий
 ![Список вакансий](docs/screenshots/02_vacancies.png)
 
@@ -38,7 +43,7 @@
 *Редактируемый профиль для точного совпадения с вакансиями*
 
 ### Telegram-бот
-![Telegram-бот](docs/screenshots/03_telegram_bot.png)
+![Telegram-бот](docs/screenshots/07_telegram_bot.png)
 
 *Просмотр вакансий, управление статусами, статистика*
 
