@@ -77,8 +77,14 @@ def vacancies_page():
         )
 
     vacancies = [v.to_dict() for v in query.all()]
-    directions = sorted(set(r[0] for r in db.session.query(Vacancy.direction).distinct() if r[0]))
-    sources = sorted(set(r[0] for r in db.session.query(Vacancy.source).distinct() if r[0]))
+
+    # Получаем уникальные направления из БД
+    directions = sorted(set(
+        r[0] for r in db.session.query(Vacancy.direction).distinct() if r[0]
+    ))
+    sources = sorted(set(
+        r[0] for r in db.session.query(Vacancy.source).distinct() if r[0]
+    ))
 
     return render_template(
         "vacancies.html",

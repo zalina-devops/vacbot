@@ -57,21 +57,9 @@ def get_search_queries_from_db():
         "1С стажёр",
         "техническая поддержка",
         "аналитик данных стажёр",
-        "верстальщик стажёр"
+        "верстальщик стажёр",
+        "оператор пк"
     ]
-
-"""
-SEARCH_QUERIES = [
-    "QA тестировщик",
-    "тестировщик стажёр",
-    "python разработчик стажёр",
-    "системный администратор стажёр",
-    "1С стажёр",
-    "техническая поддержка",
-    "аналитик данных стажёр",
-    "верстальщик стажёр",
-]
-"""
 
 BROWSER_HEADERS = {
     "User-Agent": (
@@ -297,10 +285,118 @@ class TrudvsemParser(BaseParser):
         return results
 
 
+class HabrCareerParser(BaseParser):
+    """
+    Парсер вакансий с Habr Career (career.habr.com).
+    Использует HTML-парсинг с актуальными селекторами (май 2026).
+    """
+    source_name = "habr_career"
+    BASE_URL = "https://career.habr.com/vacancies"
+
+    def fetch(self, query: str) -> list[dict]:
+        params = {
+            "q": query,
+            "page": 1,
+            "per_page": 20
+        }
+        results = []
+        try:
+            resp = requests.get(self.BASE_URL, params=params, headers=BROWSER_HEADERS, timeout=15)
+            resp.raise_for_status()
+        except requests.RequestException as e:
+            print(f"    [habr_career] Ошибка загрузки: {e}")
+            return []
+
+        soup = BeautifulSoup(resp.text, "html.parser")
+        vacancy_cards = soup.find_all("div", class_="vacancy-card")
+
+        if not vacancy_cards:
+            print("    [habr_career] Карточки не найдены. Возможно, изменилась вёрстка сайта.")
+            return []
+
+        for card in vacancy_cards:
+            v = self._parse_card(card)
+            if v:
+                results.append(v)
+        return results
+
+    def _parse_card(self, card) -> dict | None:
+        try:
+            # Ссылка на вакансию
+            link_elem = card.find("a", class_="vacancy-card__backdrop-link")
+            if not link_elem:
+                return None
+            relative_url = link_elem.get("href")
+            url = f"https://career.habr.com{relative_url}" if relative_url else ""
+            vacancy_id = f"hc_{relative_url.strip('/').split('/')[-1]}" if relative_url else None
+
+            # Заголовок
+            title_elem = card.find("a", class_="vacancy-card__title-link")
+            title = title_elem.get_text(strip=True) if title_elem else ""
+
+            # Компания
+            company_elem = card.find("div", class_="vacancy-card__company")
+            company = ""
+            if company_elem:
+                company_link = company_elem.find("a")
+                if company_link:
+                    company = company_link.get_text(strip=True)
+
+            # Зарплата
+            salary_elem = card.find("div", class_="basic-salary")
+            salary = salary_elem.get_text(strip=True) if salary_elem else "не указана"
+
+            # Город (может быть в meta или в location)
+            city = ""
+            meta_elem = card.find("div", class_="vacancy-card__meta")
+            if meta_elem:
+                city_chip = meta_elem.find("div", class_="basic-chip", string=lambda x: x and ("Москва" in x or "Санкт-Петербург" in x or "Новосибирск" in x))
+                if city_chip:
+                    city = city_chip.get_text(strip=True)
+
+            # Требования и обязанности на странице списка нет — придётся загружать отдельно
+            snippet_requirement = ""
+            snippet_responsibility = ""
+
+            return self._normalize(
+                id=vacancy_id,
+                title=title,
+                company=company,
+                salary=salary,
+                city=city,
+                url=url,
+                published="",  # дата есть, но требует парсинга
+                requirement=snippet_requirement,
+                responsibility=snippet_responsibility,
+            )
+        except Exception as e:
+            print(f"    [habr_career] Ошибка обработки карточки: {e}")
+            return None
+
+    def fetch_vacancy_details(self, url: str) -> tuple[str, str]:
+        """
+        Загружает страницу вакансии и извлекает требования и обязанности.
+        Используется при необходимости получить полное описание.
+        """
+        try:
+            resp = requests.get(url, headers=BROWSER_HEADERS, timeout=15)
+            resp.raise_for_status()
+            soup = BeautifulSoup(resp.text, "html.parser")
+            desc_elem = soup.find("div", class_="vacancy-description__text")
+            if not desc_elem:
+                return "", ""
+            text = desc_elem.get_text(strip=True)
+            # Условное разделение на требования и обязанности (можно доработать)
+            return text, ""
+        except Exception as e:
+            print(f"    [habr_career] Ошибка загрузки деталей: {e}")
+            return "", ""
+
 PARSERS = [
     HHParser(),
     SuperJobParser(),
     TrudvsemParser(),
+    HabrCareerParser()
 ]
 
 
@@ -402,6 +498,13 @@ def save_to_database(vacancies: list[dict]):
                 )
                 db.session.add(board_card)
                 added_count += 1
+
+        # В save_to_database, после того как получили вакансию v
+        if v['source'] == 'habr_career' and not v.get('snippet_requirement'):
+            habr = HabrCareerParser()
+            req, resp = habr.fetch_vacancy_details(v['url'])
+            v['snippet_requirement'] = req[:500]  # ограничиваем длину
+            v['snippet_responsibility'] = resp[:500]
 
         db.session.commit()
         print(f"\n💾 База данных:")
