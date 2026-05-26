@@ -1,12 +1,18 @@
-# telegram_bot.py
+"""
+VacBot — Telegram-модуль (python-telegram-bot v20+)
+Запуск:
+  - Прямой: python telegram_bot.py
+  - Из Flask: run_bot_in_thread() для фонового запуска
+"""
 import asyncio
 import os
-import signal
+import sys
 import warnings
+import threading
 from sqlalchemy import exc as sa_exc
+
 warnings.filterwarnings("ignore", category=sa_exc.SADeprecationWarning)
 
-from datetime import datetime
 from dotenv import load_dotenv
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
@@ -15,20 +21,11 @@ from telegram.request import HTTPXRequest
 load_dotenv()
 
 BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+if not BOT_TOKEN:
+    raise ValueError("⚠️ TELEGRAM_BOT_TOKEN не задан в .env")
 
 # ========== Настройки ==========
-REQUEST_TIMEOUT = 90  # секунд
-MAX_RETRIES = 10      # максимальное количество попыток переподключения
-RETRY_DELAY = 10      # секунд между попытками
-
-
-# Импортируем модели и функции из вашего проекта
-import sys
-
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from app import create_app, db
-from app.models import Vacancy, BoardCard, UserProfile, TelegramUser
-from app.ai_agent import calculate_match_percentage
+REQUEST_TIMEOUT = 90
 
 
 # ========== Вспомогательные функции ==========
@@ -45,7 +42,6 @@ def get_main_keyboard():
 
 
 def get_vacancy_keyboard(vacancy_id, current_status):
-    """Клавиатура для выбора статуса вакансии"""
     status_map = {
         'new': '📋 Новая',
         'starred': '⭐ Избранное',
@@ -58,7 +54,6 @@ def get_vacancy_keyboard(vacancy_id, current_status):
     row = []
     for status, label in status_map.items():
         if status != current_status:
-            # Правильный формат: vacancy_id должен быть полным ID
             row.append(InlineKeyboardButton(label, callback_data=f"set_status_{vacancy_id}_{status}"))
         if len(row) == 2:
             keyboard.append(row)
@@ -70,10 +65,33 @@ def get_vacancy_keyboard(vacancy_id, current_status):
     return InlineKeyboardMarkup(keyboard)
 
 
+async def notify_new_vacancies(vacancies: list):
+    """Отправляет уведомления о новых вакансиях подписанным пользователям."""
+    from app import create_app, db
+    from app.models import TelegramUser
+
+    app = create_app()
+    with app.app_context():
+        users = TelegramUser.query.filter_by(subscribed=True, notify_new=True).all()
+
+    for user in users:
+        try:
+            # Отправка сообщения конкретному chat_id
+            await app.bot.send_message(
+                chat_id=user.chat_id,
+                text=f"🆕 Найдено {len(vacancies)} новых вакансий!\nНажмите /menu, чтобы посмотреть.",
+                parse_mode="Markdown"
+            )
+        except Exception as e:
+            print(f"⚠️ Не удалось отправить уведомление пользователю {user.chat_id}: {e}")
+
 # ========== Команды ==========
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     chat_id = update.effective_chat.id
+
+    from app import create_app, db
+    from app.models import TelegramUser
 
     app = create_app()
     with app.app_context():
@@ -109,6 +127,9 @@ async def menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    from app import create_app, db
+    from app.models import Vacancy, BoardCard
+
     app = create_app()
     with app.app_context():
         total = Vacancy.query.count()
@@ -136,6 +157,9 @@ async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def subscribe(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
+    from app import create_app, db
+    from app.models import TelegramUser
+
     app = create_app()
     with app.app_context():
         user = TelegramUser.query.filter_by(chat_id=chat_id).first()
@@ -149,6 +173,9 @@ async def subscribe(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def unsubscribe(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
+    from app import create_app, db
+    from app.models import TelegramUser
+
     app = create_app()
     with app.app_context():
         user = TelegramUser.query.filter_by(chat_id=chat_id).first()
@@ -163,6 +190,9 @@ async def show_new_vacancies(update: Update, context: ContextTypes.DEFAULT_TYPE)
     query = update.callback_query
     await query.answer()
 
+    from app import create_app, db
+    from app.models import Vacancy
+
     app = create_app()
     with app.app_context():
         vacancies = Vacancy.query.all()
@@ -170,7 +200,6 @@ async def show_new_vacancies(update: Update, context: ContextTypes.DEFAULT_TYPE)
         for v in vacancies:
             v_dict = v.to_dict()
             if v_dict.get('board_status') == 'new':
-                # Сохраняем полный ID вакансии
                 new_vacs.append((v.id, v.title, v.company))
 
     if not new_vacs:
@@ -186,6 +215,9 @@ async def show_new_vacancies(update: Update, context: ContextTypes.DEFAULT_TYPE)
 async def show_starred(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
+
+    from app import create_app, db
+    from app.models import BoardCard
 
     app = create_app()
     with app.app_context():
@@ -214,6 +246,10 @@ async def render_vacancy_page(query, title, context):
         return
 
     vac_id, vac_title, vac_company = vacancies[page]
+
+    from app import create_app, db
+    from app.models import Vacancy
+    from app.ai_agent import calculate_match_percentage
 
     app = create_app()
     with app.app_context():
@@ -246,6 +282,10 @@ async def show_top_match(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
 
+    from app import create_app, db
+    from app.models import Vacancy
+    from app.ai_agent import calculate_match_percentage
+
     app = create_app()
     with app.app_context():
         vacancies = Vacancy.query.all()
@@ -266,6 +306,9 @@ async def show_top_match(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def show_profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
+    from app import create_app, db
+    from app.models import UserProfile
+
     app = create_app()
     with app.app_context():
         profile = UserProfile.query.first()
@@ -290,6 +333,8 @@ async def show_profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def show_settings(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     chat_id = update.effective_chat.id
+    from app import create_app, db
+    from app.models import TelegramUser
 
     app = create_app()
     with app.app_context():
@@ -311,7 +356,7 @@ async def show_settings(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.message.edit_text(msg, parse_mode="Markdown", reply_markup=InlineKeyboardMarkup(keyboard))
 
 
-# ========== Главный обработчик ==========
+# ========== Главный обработчик кнопок ==========
 async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     data = query.data
@@ -340,6 +385,9 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await render_vacancy_page(query, title, context)
     elif data.startswith("status_menu_"):
         vac_id = data.replace("status_menu_", "")
+        from app import create_app, db
+        from app.models import Vacancy
+
         app = create_app()
         with app.app_context():
             vac = Vacancy.query.get(vac_id)
@@ -355,12 +403,13 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await query.message.edit_text("❌ Вакансия не найдена в базе данных.", reply_markup=get_main_keyboard())
     elif data.startswith("set_status_"):
         parts = data.split("_")
-        # Формат: set_status_{vacancy_id}_{new_status}
-        # vacancy_id может содержать символы _, поэтому собираем все части между 3 и последней
         new_status = parts[-1]
         vac_id = "_".join(parts[2:-1])
 
         print(f"🔄 Меняем статус: vacancy_id={vac_id}, new_status={new_status}")
+
+        from app import create_app, db
+        from app.models import Vacancy, BoardCard
 
         app = create_app()
         with app.app_context():
@@ -376,7 +425,7 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if card:
                 if new_status == "starred":
                     card.starred = True
-                    card.status = "starred"  # ← добавляем эту строку
+                    card.status = "starred"
                 else:
                     if card.starred:
                         card.starred = False
@@ -404,6 +453,9 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 )
     elif data.startswith("delete_"):
         vac_id = data.replace("delete_", "")
+        from app import create_app, db
+        from app.models import Vacancy, BoardCard
+
         app = create_app()
         with app.app_context():
             vacancy = Vacancy.query.get(vac_id)
@@ -415,6 +467,9 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await query.message.edit_text("🗑️ Вакансия удалена", reply_markup=get_main_keyboard())
     elif data == "toggle_notify_new":
         chat_id = update.effective_chat.id
+        from app import create_app, db
+        from app.models import TelegramUser
+
         app = create_app()
         with app.app_context():
             user = TelegramUser.query.filter_by(chat_id=chat_id).first()
@@ -424,6 +479,9 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await show_settings(update, context)
     elif data == "toggle_notify_match":
         chat_id = update.effective_chat.id
+        from app import create_app, db
+        from app.models import TelegramUser
+
         app = create_app()
         with app.app_context():
             user = TelegramUser.query.filter_by(chat_id=chat_id).first()
@@ -433,70 +491,82 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await show_settings(update, context)
 
 
-async def main():
-    """Запуск бота с автоматическим переподключением"""
-    retry_count = 0
+# ========== Функции запуска бота ==========
+def create_bot():
+    """Создаёт и настраивает Application, но НЕ запускает его."""
+    print("🚀 Инициализация Telegram-бота...")
 
-    while retry_count < MAX_RETRIES:
+    request = HTTPXRequest(
+        connect_timeout=REQUEST_TIMEOUT,
+        read_timeout=REQUEST_TIMEOUT,
+        write_timeout=REQUEST_TIMEOUT,
+        pool_timeout=REQUEST_TIMEOUT
+    )
+
+    app = (
+        Application.builder()
+        .token(BOT_TOKEN)
+        .request(request)
+        .get_updates_request(request)
+        .concurrent_updates(True)
+        .build()
+    )
+
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("menu", menu))
+    app.add_handler(CommandHandler("stats", stats))
+    app.add_handler(CommandHandler("subscribe", subscribe))
+    app.add_handler(CommandHandler("unsubscribe", unsubscribe))
+    app.add_handler(CallbackQueryHandler(handle_callback))
+
+    print("✅ Обработчики зарегистрированы.")
+    return app
+
+
+async def run_bot():
+    """Прямой запуск бота (asyncio.run(run_bot()))"""
+    app = create_bot()
+    print("🚀 Запуск polling (ручной режим)...")
+    await app.initialize()
+    await app.start()
+    await app.updater.start_polling(drop_pending_updates=True)
+    print("✅ Бот работает и слушает обновления...")
+    await asyncio.Event().wait()
+
+
+def run_bot_in_thread():
+    """Запуск бота в отдельном потоке (для Flask)."""
+    def _run():
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
         try:
-            print(f"🚀 Запуск Telegram-бота (попытка {retry_count + 1})...")
+            app = create_bot()
+            print("🚀 Запуск polling в потоке (ручной режим)...")
+            loop.run_until_complete(app.initialize())
+            loop.run_until_complete(app.start())
+            loop.run_until_complete(app.updater.start_polling(drop_pending_updates=True))
+            print("✅ Бот работает в фоне...")
+            loop.run_until_complete(asyncio.Event().wait())
+        except KeyboardInterrupt:
+            print("\n🛑 Бот остановлен пользователем.")
+        finally:
+            try:
+                loop.run_until_complete(app.stop())
+                loop.run_until_complete(app.shutdown())
+            except Exception:
+                pass
+            loop.close()
 
-            request = HTTPXRequest(
-                connect_timeout=REQUEST_TIMEOUT,
-                read_timeout=REQUEST_TIMEOUT,
-                write_timeout=REQUEST_TIMEOUT,
-                pool_timeout=REQUEST_TIMEOUT
-            )
-
-            app = Application.builder().token(BOT_TOKEN).request(request).build()
-
-            # Регистрация обработчиков
-            app.add_handler(CommandHandler("start", start))
-            app.add_handler(CommandHandler("menu", menu))
-            app.add_handler(CommandHandler("stats", stats))
-            app.add_handler(CommandHandler("subscribe", subscribe))
-            app.add_handler(CommandHandler("unsubscribe", unsubscribe))
-            app.add_handler(CallbackQueryHandler(handle_callback))
-
-            await app.initialize()
-            await app.start()
-            await app.updater.start_polling(drop_pending_updates=True, timeout=REQUEST_TIMEOUT)
-
-            print("✅ Бот успешно запущен и работает!")
-            retry_count = 0  # сброс счётчика при успешном подключении
-
-            # Бесконечное ожидание с обработкой разрыва соединения
-            while True:
-                await asyncio.sleep(5)
-                # Проверка соединения (если бот отключился, вылетит исключение)
-                await app.bot.get_me()
-
-        except asyncio.TimeoutError:
-            print(f"⚠️ Таймаут соединения. Переподключение через {RETRY_DELAY} сек...")
-            retry_count += 1
-            await asyncio.sleep(RETRY_DELAY)
-
-        except Exception as e:
-            print(f"⚠️ Ошибка: {e}")
-            retry_count += 1
-            if retry_count < MAX_RETRIES:
-                print(f"   Переподключение через {RETRY_DELAY} сек... (попытка {retry_count + 1}/{MAX_RETRIES})")
-                await asyncio.sleep(RETRY_DELAY)
-            else:
-                print(f"❌ Не удалось подключиться после {MAX_RETRIES} попыток")
-                break
-
-    print("🛑 Бот остановлен")
+    thread = threading.Thread(target=_run, daemon=True, name="TelegramBot")
+    thread.start()
+    print("✅ Бот запущен в фоновом потоке.")
+    return thread
 
 
+# ========== Точка входа для прямого запуска (python telegram_bot.py) ==========
 if __name__ == "__main__":
-    # Обработка Ctrl+C
-    def signal_handler(sig, frame):
-        print("\n🛑 Остановка бота...")
-        exit(0)
-
-
-    signal.signal(signal.SIGINT, signal_handler)
-    signal.signal(signal.SIGTERM, signal_handler)
-
-    asyncio.run(main())
+    print("🤖 VacBot Telegram-модуль")
+    try:
+        asyncio.run(run_bot())
+    except KeyboardInterrupt:
+        print("\n🛑 Бот остановлен пользователем.")

@@ -232,7 +232,7 @@ python run.py
 #### Telegram-бот
 
 ```bash
-python telegram_bot.py
+python telegram_bot1.py
 ```
 
 #### Парсер вакансий
