@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Резюме — {{ name }}</title>
+    <style>
+        @page {
+            size: A4;
+            margin: 0;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+            background: #f0f0f0;
+            color: #2d3436;
+            line-height: 1.6;
+        }
+        
+        .page {
+            width: 210mm;
+            min-height: 297mm;
+            padding: 40px 50px;
+            background: white;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        /* Декоративный градиент сверху */
+        .page::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 8px;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+        }
+        
+        /* Шапка */
+        .header {
+            display: flex;
+            align-items: flex-start;
+            gap: 30px;
+            margin-bottom: 35px;
+            padding-bottom: 25px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+        
+        .avatar {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 36px;
+            font-weight: 700;
+            flex-shrink: 0;
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.3);
+        }
+        
+        .name-block h1 {
+            font-size: 32px;
+            font-weight: 700;
+            color: #2d3436;
+            margin-bottom: 8px;
+            letter-spacing: -0.5px;
+        }
+        
+        .subtitle {
+            color: #636e72;
+            font-size: 15px;
+            margin-bottom: 4px;
+        }
+        
+        .contact-info {
+            display: flex;
+            gap: 20px;
+            margin-top: 12px;
+            font-size: 13px;
+            color: #636e72;
+        }
+        
+        .contact-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .contact-item::before {
+            content: '•';
+            color: #667eea;
+            font-weight: bold;
+        }
+        
+        /* Секции */
+        .section {
+            margin-bottom: 28px;
+        }
+        
+        .section-title {
+            font-size: 14px;
+            font-weight: 700;
+            color: #667eea;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-bottom: 15px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid #e8e8e8;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .section-title::before {
+            content: '';
+            width: 4px;
+            height: 20px;
+            background: linear-gradient(180deg, #667eea 0%, #764ba2 100%);
+            border-radius: 2px;
+        }
+        
+        /* О себе */
+        .about-text {
+            font-size: 14px;
+            color: #4a4a4a;
+            line-height: 1.8;
+            text-align: justify;
+        }
+        
+        /* Навыки — теги */
+        .skills-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        
+        .skill-tag {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border: 1px solid #dee2e6;
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 13px;
+            color: #495057;
+            font-weight: 500;
+            transition: all 0.3s;
+        }
+        
+        .skill-tag.highlight {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-color: transparent;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        }
+        
+        /* Проекты */
+        .project-card {
+            background: #f8f9fa;
+            border-left: 4px solid #667eea;
+            padding: 18px 20px;
+            margin-bottom: 15px;
+            border-radius: 0 12px 12px 0;
+            position: relative;
+        }
+        
+        .project-card::before {
+            content: '🚀';
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            font-size: 20px;
+            opacity: 0.3;
+        }
+        
+        .project-name {
+            font-weight: 700;
+            color: #2d3436;
+            font-size: 15px;
+            margin-bottom: 6px;
+        }
+        
+        .project-desc {
+            color: #636e72;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+        
+        .project-stack {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 10px;
+        }
+        
+        .stack-tag {
+            background: #e7e9fc;
+            color: #667eea;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+        
+        /* Опыт */
+        .experience-item {
+            margin-bottom: 20px;
+            padding-left: 20px;
+            border-left: 2px solid #e8e8e8;
+        }
+        
+        .experience-title {
+            font-weight: 700;
+            color: #2d3436;
+            font-size: 15px;
+            margin-bottom: 4px;
+        }
+        
+        .experience-period {
+            color: #667eea;
+            font-size: 12px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+        
+        .experience-desc {
+            color: #636e72;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+        
+        /* Футер */
+        .footer {
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 2px solid #f0f0f0;
+            text-align: center;
+            font-size: 12px;
+            color: #b2bec3;
+        }
+        
+        .footer-qr {
+            width: 80px;
+            height: 80px;
+            background: #f0f0f0;
+            margin: 15px auto;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            color: #636e72;
+        }
+        
+        /* Адаптированный блок (для AI-генерации) */
+        .adapted-block {
+            background: linear-gradient(135deg, #fff9e6 0%, #fff3cd 100%);
+            border: 1px solid #ffeaa7;
+            border-radius: 12px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+        
+        .adapted-label {
+            font-size: 11px;
+            font-weight: 700;
+            color: #d63031;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 10px;
+        }
+        
+        .adapted-text {
+            font-size: 14px;
+            color: #2d3436;
+            line-height: 1.7;
+            font-style: italic;
+        }
+        
+        /* Для печати */
+        @media print {
+            body { background: white; }
+            .page { box-shadow: none; }
+        }
+    </style>
+</head>
+<body>
+    <div class="page">
+        <!-- Шапка -->
+        <div class="header">
+            <div class="avatar">{{ name[0] if name else '?' }}</div>
+            <div class="name-block">
+                <h1>{{ name or 'Имя не указано' }}</h1>
+                <p class="subtitle">{{ specialty or 'Специальность не указана' }}</p>
+                <p class="subtitle">{{ education or 'Образование не указано' }}</p>
+                <div class="contact-info">
+                    <span class="contact-item">{{ languages or 'Языки не указаны' }}</span>
+                    <span class="contact-item">{{ expected_salary or 'Зарплата по договорённости' }}</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- О себе -->
+        <div class="section">
+            <div class="section-title">О себе</div>
+            <p class="about-text">{{ about or 'Информация не заполнена' }}</p>
+        </div>
+
+        <!-- Ключевые навыки -->
+        <div class="section">
+            <div class="section-title">Ключевые навыки</div>
+            <div class="skills-container">
+                {% for skill in (skills or '').split(',') %}
+                    {% if skill.strip() %}
+                    <span class="skill-tag {% if skill.strip().lower() in ['docker', 'python', 'postgresql', 'git', 'docker compose'] %}highlight{% endif %}">
+                        {{ skill.strip() }}
+                    </span>
+                    {% endif %}
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Проекты -->
+        {% if projects %}
+        <div class="section">
+            <div class="section-title">Проекты</div>
+            {% for project in projects.split(';') %}
+                {% if project.strip() %}
+                <div class="project-card">
+                    {% set parts = project.split('—', 1) %}
+                    <div class="project-name">{{ parts[0].strip() }}</div>
+                    {% if parts|length > 1 %}
+                    <div class="project-desc">{{ parts[1].strip() }}</div>
+                    {% endif %}
+                    <div class="project-stack">
+                        {% for word in project.split() %}
+                            {% if word in ['Python', 'Node.js', 'React', 'Docker', 'PostgreSQL', 'Flask', 'Express', 'JWT', 'CI/CD', 'Jest', 'Supertest', 'HTML/CSS', 'Git', 'Bash', 'Linux', 'Nginx', 'REST', 'API'] %}
+                            <span class="stack-tag">{{ word }}</span>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <!-- Опыт -->
+        {% if experience %}
+        <div class="section">
+            <div class="section-title">Опыт</div>
+            <div class="experience-item">
+                <div class="experience-title">Учебные проекты и практика</div>
+                <div class="experience-period">2024 — настоящее время</div>
+                <div class="experience-desc">{{ experience }}</div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Адаптированный блок (если есть) -->
+        {% if adapted_text %}
+        <div class="adapted-block">
+            <div class="adapted-label">Адаптировано под вакансию: {{ vacancy_title or '' }}</div>
+            <div class="adapted-text">{{ adapted_text }}</div>
+        </div>
+        {% endif %}
+
+        <!-- Футер -->
+        <div class="footer">
+            <p>Резюме сгенерировано с помощью VacBot</p>
+            <p style="margin-top: 5px; font-size: 11px;">GitHub: github.com/zalina-devops</p>
+        </div>
+    </div>
+</body>
+</html>

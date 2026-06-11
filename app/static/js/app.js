@@ -287,7 +287,7 @@ async function adaptResume(vacancyId) {
         const res = await fetch(`/api/adapt-resume/${vacancyId}`, { method: 'POST' });
         const data = await res.json();
         if (data.success) {
-            showModal('Адаптированное резюме', data.text);
+            showModal('Адаптированное резюме', data.text, vacancyId);
         } else {
             showToast('Ошибка: ' + (data.error || 'неизвестная'), 'error');
         }
@@ -312,32 +312,48 @@ async function generateAICoverLetter(vacancyId) {
     }
 }
 
-function showModal(title, content) {
+function showModal(title, content, vacancyId = null) {
     const existing = document.getElementById('aiModal');
     if (existing) existing.remove();
 
+    const isResume = title.includes('резюме');
+
     const modal = document.createElement('div');
     modal.id = 'aiModal';
+    modal.className = 'ai-modal';
     modal.innerHTML = `
-        <div class="ai-modal-header">
-            <h3>${title}</h3>
-            <button class="close-modal">&times;</button>
-        </div>
-        <div class="ai-modal-body">${content.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>
-        <div class="ai-modal-footer">
-            <button class="copy-btn nav-btn">Скопировать текст</button>
-            <button class="close-btn nav-btn">Закрыть</button>
+        <div class="ai-modal-overlay" onclick="document.getElementById('aiModal').remove()"></div>
+        <div class="ai-modal-content">
+            <div class="ai-modal-header">
+                <h3>${title}</h3>
+                <button class="close-modal" onclick="document.getElementById('aiModal').remove()">&times;</button>
+            </div>
+            <div class="ai-modal-body">${content.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>
+            <div class="ai-modal-footer">
+                ${vacancyId && isResume ?
+                    `<button class="nav-btn pdf-btn" onclick="window.open('/api/resume/pdf/${vacancyId}', '_blank')">Для себя (с метками)</button>
+                     <button class="btn-emerald" onclick="window.open('/api/resume/pdf/${vacancyId}?clean=1', '_blank')">Для отправки (без меток)</button>` : ''}
+                <button class="copy-btn nav-btn">Скопировать текст</button>
+                <button class="close-btn nav-btn" onclick="document.getElementById('aiModal').remove()">Закрыть</button>
+            </div>
         </div>
     `;
     document.body.appendChild(modal);
 
-    const closeFn = () => modal.remove();
-    modal.querySelector('.close-modal').addEventListener('click', closeFn);
-    modal.querySelector('.close-btn').addEventListener('click', closeFn);
+    // Кнопка копирования
     modal.querySelector('.copy-btn').addEventListener('click', () => {
         navigator.clipboard.writeText(content);
-        showToast('Текст скопирован');
+        showToast('✅ Текст скопирован');
     });
+
+    // Escape для закрытия
+    const escHandler = (e) => {
+        if (e.key === 'Escape') {
+            modal.remove();
+            document.removeEventListener('keydown', escHandler);
+        }
+    };
+    document.addEventListener('keydown', escHandler);
 }
 
 async function deleteVacancy(vacancyId) {

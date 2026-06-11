@@ -1,9 +1,3 @@
-"""
-VacBot — Telegram-модуль (python-telegram-bot v20+)
-Запуск:
-  - Прямой: python telegram_bot.py
-  - Из Flask: run_bot_in_thread() для фонового запуска
-"""
 import asyncio
 import os
 import sys
@@ -36,10 +30,27 @@ def get_main_keyboard():
         [InlineKeyboardButton("📊 Статистика", callback_data="stats")],
         [InlineKeyboardButton("👤 Мой профиль", callback_data="profile")],
         [InlineKeyboardButton("🎯 Топ совпадений", callback_data="top_match")],
-        [InlineKeyboardButton("⚙️ Настройки", callback_data="settings")]
+        [InlineKeyboardButton("⚙️ Настройки", callback_data="settings")],
+        [InlineKeyboardButton("📚 Статистика фильтра", callback_data="filter_stats")]
     ]
     return InlineKeyboardMarkup(keyboard)
 
+
+async def show_filter_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+
+    from src.filters.learning_filter import LearningFilter
+
+    filter = LearningFilter()
+    stats = filter.get_stats()
+
+    msg = f"📊 *Статистика обучения фильтра*\n\n"
+    msg += f"📝 Одобренных слов: *{stats['approved_words_count']}*\n"
+    msg += f"❌ Отклоненных слов: *{stats['rejected_words_count']}*\n"
+    msg += f"🔄 Всего обратной связи: *{stats['total_feedback']}*"
+
+    await query.message.edit_text(msg, parse_mode="Markdown", reply_markup=get_main_keyboard())
 
 def get_vacancy_keyboard(vacancy_id, current_status):
     status_map = {
@@ -84,6 +95,8 @@ async def notify_new_vacancies(vacancies: list):
             )
         except Exception as e:
             print(f"⚠️ Не удалось отправить уведомление пользователю {user.chat_id}: {e}")
+
+
 
 # ========== Команды ==========
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -490,6 +503,50 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 db.session.commit()
         await show_settings(update, context)
 
+    elif data == "filter_stats":
+        await show_filter_stats(update, context)
+
+    # Замените обработчики feedback в handle_callback (строки 467-485) на это:
+
+    elif data.startswith("feedback_good_"):
+        vac_id = data.replace("feedback_good_", "")
+        from app import create_app, db
+        from app.models import Vacancy
+        from src.filters.learning_filter import LearningFilter
+
+        app = create_app()
+
+        with app.app_context():
+            vac = Vacancy.query.get(vac_id)
+            if vac:
+                filter = LearningFilter()
+                filter.add_feedback(
+                    (vac.title or "") + " " + (vac.description or ""),
+                    approved=True
+                )
+                await query.answer("✅ Спасибо! Фильтр запомнил, что такая вакансия вам подходит.")
+            else:
+                await query.answer("❌ Вакансия не найдена")
+
+
+    elif data.startswith("feedback_bad_"):
+        vac_id = data.replace("feedback_bad_", "")
+        from app import create_app, db
+        from app.models import Vacancy
+        from src.filters.learning_filter import LearningFilter
+
+        app = create_app()
+        with app.app_context():
+            vac = Vacancy.query.get(vac_id)
+            if vac:
+                filter = LearningFilter()
+                filter.add_feedback(
+                    (vac.title or "") + " " + (vac.description or ""),
+                    approved=False
+                )
+                await query.answer("❌ Спасибо! Фильтр запомнил, что такая вакансия не подходит.")
+            else:
+                await query.answer("❌ Вакансия не найдена")
 
 # ========== Функции запуска бота ==========
 def create_bot():

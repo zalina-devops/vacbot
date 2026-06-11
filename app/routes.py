@@ -2,9 +2,11 @@ import os
 import json
 import subprocess
 import sys
-from datetime import datetime
+import threading
 
-from flask import Blueprint, render_template, jsonify, request, redirect, url_for
+from datetime import datetime
+from flask import Blueprint, render_template, jsonify, request, redirect, url_for, flash, Response, render_template_string, make_response
+
 from . import db
 from .models import Vacancy, BoardCard, UserProfile, CoverLetterTemplate, SearchQuery, StopWord
 from .config import Config
@@ -12,6 +14,8 @@ from .ai_agent import calculate_match_percentage
 
 main = Blueprint("main", __name__)
 
+parser_lock = threading.Lock()
+parser_running = False
 
 # ─── Вспомогательные функции ──────────────────────────────────────────────────
 
@@ -27,6 +31,7 @@ def get_or_create_card(vacancy_id: str) -> BoardCard:
 
 # ─── Страницы ─────────────────────────────────────────────────────────────────
 
+        
 @main.route("/")
 def index():
     """Главная — канбан-доска с процентами совпадения."""
@@ -106,23 +111,19 @@ def update_status(vacancy_id: str):
     data = request.get_json()
     new_status = data.get("status")
 
-    # Добавляем 'starred' в список допустимых статусов
     valid_statuses = ["new", "starred", "applied", "interview", "rejected", "offer"]
     if new_status not in valid_statuses:
         return jsonify({"error": "invalid status"}), 400
 
-    # Проверяем что вакансия существует
     if not db.session.get(Vacancy, vacancy_id):
         return jsonify({"error": "vacancy not found"}), 404
 
     card = get_or_create_card(vacancy_id)
 
-    # Обработка статуса "избранное"
     if new_status == "starred":
         card.starred = True
-        card.status = "starred"  # ← ВАЖНО: устанавливаем и статус тоже
+        card.status = "starred"
     else:
-        # Если выбираем любой другой статус, снимаем отметку "избранное"
         if card.starred:
             card.starred = False
         card.status = new_status
@@ -146,7 +147,6 @@ def toggle_star(vacancy_id: str):
     card = get_or_create_card(vacancy_id)
     card.starred = not card.starred
 
-    # Синхронизируем статус
     if card.starred:
         card.status = "starred"
     elif card.status == "starred":
@@ -206,26 +206,63 @@ def delete_card(vacancy_id: str):
 
 @main.route("/api/run-parser", methods=["POST"])
 def run_parser():
+    global parser_running
+
+    if parser_running:
+        return jsonify({
+            "ok": False,
+            "error": "Парсер уже выполняется"
+        }), 409
+
     try:
+        parser_running = True
+
         import sys
+        import json
         from pathlib import Path
+
         src_path = Path(__file__).parent.parent / 'src'
         sys.path.insert(0, str(src_path))
-        from fetcher import collect_all, save_to_database
+
+        from src.fetcher import collect_all
+        from src.services.vacancy_storage import save_to_database
+
+        print("🚀 Запуск парсинга через /api/run-parser")
+
         vacancies = collect_all()
+
         if vacancies:
             save_to_database(vacancies)
-            with open('data/vacancies.json', 'w', encoding='utf-8') as f:
-                json.dump(vacancies, f, ensure_ascii=False, indent=2)
+
+            with open(
+                'data/vacancies.json',
+                'w',
+                encoding='utf-8'
+            ) as f:
+                json.dump(
+                    vacancies,
+                    f,
+                    ensure_ascii=False,
+                    indent=2
+                )
+
         return jsonify({
             "ok": True,
             "message": f"Парсер завершен. Найдено {len(vacancies)} вакансий",
             "total": len(vacancies)
         })
+
     except Exception as e:
         import traceback
         traceback.print_exc()
-        return jsonify({"ok": False, "error": str(e)}), 500
+
+        return jsonify({
+            "ok": False,
+            "error": str(e)
+        }), 500
+
+    finally:
+        parser_running = False
 
 @main.route("/api/stats")
 def stats():
@@ -257,13 +294,17 @@ def stats():
     })
 
 # ---------- AI-агент (адаптация резюме и письма) ----------
-@main.route("/api/adapt-resume/<vacancy_id>", methods=["POST"])
+@main.route("/api/adapt-resume/<vacancy_id>", methods=["GET", "POST"])
 def api_adapt_resume(vacancy_id):
     try:
         from app.ai_agent import adapt_resume
         result = adapt_resume(vacancy_id)
+        if result is None:
+            result = "Ошибка: AI вернул пустой ответ. Проверьте API-ключ и баланс OpenRouter."
         return jsonify({"success": True, "text": result})
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         return jsonify({"success": False, "error": str(e)}), 500
 
 @main.route("/api/generate-cover-letter/<vacancy_id>", methods=["POST"])
@@ -298,7 +339,6 @@ def api_profile_get():
         "preferred_directions": profile.preferred_directions or "",
         "expected_salary": profile.expected_salary or "",
         "about": profile.about or "",
-        "status": profile.status or "",
         "projects": profile.projects or "",
         "contacts": profile.contacts or ""
     })
@@ -319,7 +359,6 @@ def api_profile_save():
     profile.preferred_directions = data.get("preferred_directions", "")
     profile.expected_salary = data.get("expected_salary", "")
     profile.about = data.get("about", "")
-    profile.status = data.get("status", "")
     profile.projects = data.get("projects", "")
     profile.contacts = data.get("contacts", "")
     db.session.commit()
@@ -340,7 +379,6 @@ def api_profile_default():
     profile.preferred_directions = "QA, Python-разработка, Техподдержка"
     profile.expected_salary = "30 000 - 50 000 руб."
     profile.about = "Студентка 3 курса колледжа, внимательна к деталям, быстро учусь"
-    profile.status = "Студент"
     profile.projects = "VacBot — парсер вакансий"
     profile.contacts = "example@mail.com"
     db.session.commit()
@@ -363,83 +401,268 @@ def cover_letter_page():
         return redirect(url_for("main.cover_letter_page"))
     return render_template("cover_letter.html", template=template.template_text)
 
-# ---------- Поисковые запросы ----------
-@main.route("/search-queries", methods=["GET", "POST"])
-def search_queries_page():
-    if request.method == "POST":
+# ============= НОВЫЕ РОУТЫ ДЛЯ ФИЛЬТРОВ =============
+
+@main.route('/filters', methods=['GET'])
+def manage_filters():
+    """Страница управления фильтрами"""
+    whitelist = [q.text for q in SearchQuery.query.filter_by(is_active=True).all()]
+    blacklist = [sw.word for sw in StopWord.query.all()]
+    return render_template('filters.html', whitelist=whitelist, blacklist=blacklist)
+
+@main.route('/save-filters', methods=['POST'])
+def save_filters():
+    """Сохраняет фильтры из формы"""
+    try:
+        # Очищаем старые фильтры
         SearchQuery.query.delete()
-        raw = request.form.get("queries", "")
-        for line in raw.split("\n"):
-            q = line.strip()
-            if q:
-                db.session.add(SearchQuery(text=q))
+        StopWord.query.delete()
+
+        # Сохраняем белый список (разрешенные слова)
+        whitelist_words = request.form.getlist('whitelist[]')
+        for word in whitelist_words:
+            if word and word.strip():
+                db.session.add(SearchQuery(
+                    text=word.strip().lower(),
+                    is_active=True
+                ))
+
+        # Сохраняем черный список (стоп-слова)
+        blacklist_words = request.form.getlist('blacklist[]')
+        for word in blacklist_words:
+            if word and word.strip():
+                db.session.add(StopWord(word=word.strip().lower()))
+
         db.session.commit()
-        return redirect(url_for("main.search_queries_page"))
-    queries = SearchQuery.query.order_by(SearchQuery.id).all()
-    return render_template("search_queries.html", queries=[q.text for q in queries])
+        flash('✅ Фильтры успешно сохранены!', 'success')
 
-# ---------- Стоп-слова ----------
-@main.route("/stopwords")
-def stopwords_page():
-    return render_template("stopwords.html")
+    except Exception as e:
+        db.session.rollback()
+        flash(f'❌ Ошибка при сохранении: {str(e)}', 'error')
 
-@main.route("/api/stopwords", methods=["GET"])
-def api_stopwords():
-    words = StopWord.query.order_by(StopWord.word).all()
-    return jsonify([{"id": w.id, "word": w.word, "category": w.category} for w in words])
+    return redirect(url_for('main.manage_filters'))
 
-@main.route("/api/stopwords/add", methods=["POST"])
-def api_stopwords_add():
-    data = request.get_json()
-    word = data.get("word", "").strip().lower()
-    category = data.get("category", "general")
-    if not word:
-        return jsonify({"error": "Слово не может быть пустым"}), 400
-    if StopWord.query.filter_by(word=word).first():
-        return jsonify({"error": "Такое слово уже есть"}), 400
-    sw = StopWord(word=word, category=category)
-    db.session.add(sw)
-    db.session.commit()
-    return jsonify({"success": True, "id": sw.id})
 
-@main.route("/api/stopwords/delete/<int:word_id>", methods=["POST"])
-def api_stopwords_delete(word_id):
-    sw = StopWord.query.get_or_404(word_id)
-    db.session.delete(sw)
-    db.session.commit()
-    return jsonify({"success": True})
+@main.route('/api/rebuild-database', methods=['POST'])
+def rebuild_database():
+    try:
+        BoardCard.query.delete()
+        Vacancy.query.delete()
 
-@main.route("/api/stopwords/bulk", methods=["POST"])
-def api_stopwords_bulk():
-    data = request.get_json()
-    words = data.get("words", [])
-    StopWord.query.delete()
-    for w in words:
-        db.session.add(StopWord(word=w["word"].lower(), category=w.get("category", "general")))
-    db.session.commit()
-    return jsonify({"success": True, "count": len(words)})
+        db.session.commit()
 
-# ---------- Администрирование (планировщик) ----------
-@main.route('/admin/parse', methods=['POST'])
-def manual_parse():
-    from app.parser_service import run_parser_and_save
-    added, updated = run_parser_and_save()
-    return jsonify({
-        'status': 'success',
-        'added': added,
-        'updated': updated,
-        'total': Vacancy.query.count()
-    })
+        return jsonify({
+            "status": "success",
+            "message": "База данных очищена"
+        })
 
-@main.route('/admin/parse/start-scheduler', methods=['POST'])
-def start_scheduler_route():
-    from app.scheduler import start_scheduler
-    interval = int(os.getenv('PARSING_INTERVAL_HOURS', 24))
-    start_scheduler(interval_hours=interval, run_immediately=False)
-    return jsonify({'status': 'scheduler_started', 'interval_hours': interval})
+    except Exception as e:
+        db.session.rollback()
 
-@main.route('/admin/parse/stop-scheduler', methods=['POST'])
-def stop_scheduler_route():
-    from app.scheduler import stop_scheduler
-    stop_scheduler()
-    return jsonify({'status': 'scheduler_stopped'})
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        }), 500
+
+@main.route('/api/download-backup')
+def download_backup():
+    """Скачивание бэкапа базы данных"""
+    vacancies = Vacancy.query.all()
+    backup_data = []
+
+    for v in vacancies:
+        backup_data.append({
+            'id': v.id,
+            'title': v.title,
+            'company': v.company,
+            'url': v.url,
+            'salary': v.salary,
+            'direction': v.direction,
+            'source': v.source,
+            'snippet_requirement': v.snippet_requirement,
+            'created_at': v.created_at.isoformat() if v.created_at else None
+        })
+
+    backup_json = json.dumps(backup_data, ensure_ascii=False, indent=2)
+
+    return Response(
+        backup_json,
+        mimetype='application/json',
+        headers={
+            'Content-Disposition': f'attachment; filename=vacbot_backup_{datetime.now().strftime("%Y%m%d_%H%M%S")}.json'
+        }
+    )
+    
+# ---------- PDF Резюме ----------
+@main.route("/api/resume/pdf/<path:vacancy_id>")
+def generate_resume_pdf(vacancy_id):
+    from app.ai_agent import adapt_resume
+    from app.models import Vacancy
+    
+    profile = UserProfile.query.first()
+    if not profile:
+        return jsonify({'error': 'Профиль не заполнен'}), 400
+    
+    vacancy = db.session.get(Vacancy, vacancy_id)
+    clean = request.args.get('clean', '0') == '1'
+    
+    # Получаем адаптированный текст
+    try:
+        adapted_text = adapt_resume(vacancy_id)
+        if adapted_text.startswith('❌') or adapted_text.startswith('🔧'):
+            adapted_text = None
+    except:
+        adapted_text = None
+    
+    # HTML-шаблон резюме
+    html_template = '''
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Резюме — {{ name }}</title>
+    <style>
+        @page { size: A4; margin: 0; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Arial, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #2d3436; line-height: 1.6; padding: 20px; }
+        .page { width: 210mm; min-height: 297mm; padding: 50px; background: white; margin: 0 auto; box-shadow: 0 20px 60px rgba(0,0,0,0.3); border-radius: 12px; position: relative; overflow: hidden; }
+        .top-bar { position: absolute; top: 0; left: 0; right: 0; height: 6px; background: linear-gradient(90deg, #667eea 0%, #764ba2 50%, #f093fb 100%); }
+        .header { display: flex; align-items: center; gap: 30px; margin-bottom: 35px; padding-bottom: 25px; border-bottom: 2px solid #f0f0f0; }
+        .avatar { width: 90px; height: 90px; border-radius: 50%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); display: flex; align-items: center; justify-content: center; color: white; font-size: 32px; font-weight: 700; flex-shrink: 0; box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4); }
+        .name-block h1 { font-size: 30px; font-weight: 700; color: #2d3436; margin-bottom: 6px; letter-spacing: -0.5px; }
+        .subtitle { color: #636e72; font-size: 14px; margin-bottom: 3px; }
+        .contact-info { display: flex; gap: 15px; margin-top: 10px; font-size: 12px; color: #636e72; flex-wrap: wrap; }
+        .contact-item { display: flex; align-items: center; gap: 5px; background: #f8f9fa; padding: 4px 10px; border-radius: 12px; }
+        .section { margin-bottom: 25px; }
+        .section-title { font-size: 13px; font-weight: 700; color: #667eea; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 12px; padding-bottom: 6px; border-bottom: 2px solid #e8e8e8; display: flex; align-items: center; gap: 8px; }
+        .section-title::before { content: ''; width: 4px; height: 18px; background: linear-gradient(180deg, #667eea 0%, #764ba2 100%); border-radius: 2px; }
+        .about-text { font-size: 13px; color: #4a4a4a; line-height: 1.8; text-align: justify; }
+        .skills-container { display: flex; flex-wrap: wrap; gap: 8px; }
+        .skill-tag { background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); border: 1px solid #dee2e6; padding: 5px 14px; border-radius: 20px; font-size: 12px; color: #495057; font-weight: 500; }
+        .skill-tag.highlight { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border-color: transparent; box-shadow: 0 3px 10px rgba(102, 126, 234, 0.3); }
+        .project-card { background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%); border-left: 4px solid #667eea; padding: 15px 18px; margin-bottom: 12px; border-radius: 0 10px 10px 0; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+        .project-name { font-weight: 700; color: #2d3436; font-size: 14px; margin-bottom: 5px; }
+        .project-desc { color: #636e72; font-size: 12px; line-height: 1.6; }
+        .experience-text { font-size: 13px; color: #4a4a4a; line-height: 1.7; padding-left: 15px; border-left: 3px solid #e8e8e8; }
+        .adapted-block { background: linear-gradient(135deg, #fff9e6 0%, #fff3cd 100%); border: 1px solid #ffeaa7; border-radius: 10px; padding: 18px; margin-top: 20px; position: relative; }
+        .adapted-label { font-size: 10px; font-weight: 700; color: #d63031; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+        .adapted-text { font-size: 13px; color: #2d3436; line-height: 1.7; }
+        .footer { margin-top: 35px; padding-top: 15px; border-top: 2px solid #f0f0f0; text-align: center; font-size: 11px; color: #b2bec3; }
+        .footer a { color: #667eea; text-decoration: none; }
+        .print-btn { position: fixed; top: 20px; right: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer; font-size: 13px; box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3); z-index: 1000; }
+        .print-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4); }
+        @media print { body { background: white; padding: 0; } .page { box-shadow: none; border-radius: 0; margin: 0; } .print-btn { display: none; } }
+    </style>
+</head>
+<body>
+    <button class="print-btn" onclick="window.print()">🖨️ Печать / Сохранить как PDF</button>
+    
+    <div class="page">
+        <div class="top-bar"></div>
+        
+        <div class="header">
+            <div class="avatar">{{ name[0] if name and name|length > 0 else '?' }}</div>
+            <div class="name-block">
+                <h1>{{ name or 'Имя не указано' }}</h1>
+                <p class="subtitle">{{ specialty or 'Специальность не указана' }}</p>
+                <p class="subtitle">{{ education or 'Образование не указано' }}</p>
+                <div class="contact-info">
+                    <span class="contact-item">🌐 {{ languages or 'Языки не указаны' }}</span>
+                    <span class="contact-item">💰 {{ expected_salary or 'По договорённости' }}</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-title">О себе</div>
+            {% if adapted_text %}
+                <p class="about-text">{{ adapted_text | safe }}</p>
+            {% else %}
+                <p class="about-text">{{ about or 'Информация не заполнена' }}</p>
+            {% endif %}
+        </div>
+
+        <div class="section">
+            <div class="section-title">Ключевые навыки</div>
+            <div class="skills-container">
+                {% for skill in skills.split(',') %}
+                    {% if skill.strip() %}
+                    <span class="skill-tag {% if skill.strip().lower() in ['docker', 'python', 'postgresql', 'git', 'docker compose', 'linux', 'bash', 'flask', 'node.js', 'express', 'rest api', 'jwt', 'nginx', 'ci/cd'] %}highlight{% endif %}">
+                        {{ skill.strip() }}
+                    </span>
+                    {% endif %}
+                {% endfor %}
+            </div>
+        </div>
+
+        {% if projects %}
+        <div class="section">
+            <div class="section-title">Проекты</div>
+            {% for project in projects.split(';') %}
+                {% if project.strip() %}
+                <div class="project-card">
+                    {% set parts = project.split('—', 1) %}
+                    <div class="project-name">{{ parts[0].strip() }}</div>
+                    {% if parts|length > 1 %}
+                    <div class="project-desc">{{ parts[1].strip() }}</div>
+                    {% endif %}
+                </div>
+                {% endif %}
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        {% if experience %}
+        <div class="section">
+            <div class="section-title">Опыт</div>
+            <div class="experience-text">{{ experience }}</div>
+        </div>
+        {% endif %}
+
+        {% if adapted_text and not clean %}
+        <div class="adapted-block">
+            <div class="adapted-label">✨ Адаптировано под вакансию: {{ vacancy_title or 'Текущая вакансия' }}</div>
+            <div class="adapted-text">{{ adapted_text | safe }}</div>
+        </div>
+        {% endif %}
+
+        <div class="footer">
+            <p>GitHub: <a href="https://github.com/zalina-devops">github.com/zalina-devops</a></p>
+            {% if not clean %}
+            <p style="margin-top: 5px;">Резюме сгенерировано с помощью VacBot</p>
+            {% endif %}
+        </div>
+    </div>
+</body>
+</html>
+'''
+
+    # Рендерим через Flask (правильный Jinja2)
+    html = render_template_string(html_template,
+        name=profile.name,
+        specialty=profile.specialty,
+        education=profile.education,
+        about=profile.about,
+        skills=profile.skills or '',
+        projects=profile.projects,
+        experience=profile.experience,
+        languages=profile.languages,
+        expected_salary=profile.expected_salary,
+        adapted_text=adapted_text,
+        vacancy_title=vacancy.title if vacancy else None,
+        clean=clean
+    )
+    
+    # Генерируем PDF через pdfkit (альтернатива weasyprint для Windows)
+    try:
+        import pdfkit
+        config = pdfkit.configuration(wkhtmltopdf=r'C:\Program Files\wkhtmltopdf\bin\wkhtmltopdf.exe')
+        pdf = pdfkit.from_string(html, False, configuration=config)
+    except Exception as e:
+        # Если pdfkit не работает — возвращаем HTML для печати
+        return Response(html, mimetype='text/html')
+    
+    response = make_response(pdf)
+    response.headers['Content-Type'] = 'application/pdf'
+    response.headers['Content-Disposition'] = f'attachment; filename=resume_{"clean_" if clean else ""}{profile.name or "vacbot"}_{vacancy_id}.pdf'
+    return response

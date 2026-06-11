@@ -1,42 +1,55 @@
 # run.py
-import threading
-import os
-import time
-import subprocess
 import sys
-from app import create_app
-
-app = create_app()
-
-# Путь к файлу бота
-BOT_SCRIPT = os.path.join(os.path.dirname(__file__), "telegram_bot.py")
+import os
+import argparse
 
 
-def run_bot_with_auto_restart():
-    """Запуск бота с автоматическим перезапуском при падении"""
-    while True:
-        try:
-            print("🤖 Запуск Telegram-бота...")
-            # Запускаем бота в отдельном процессе
-            process = subprocess.Popen([sys.executable, BOT_SCRIPT])
-            process.wait()  # Ждём завершения процесса
+def main():
+    parser = argparse.ArgumentParser(description='VacBot - система поиска вакансий')
+    parser.add_argument('--mode', choices=['web', 'bot', 'both'], default='both',
+                        help='Режим запуска: web (только сайт), bot (только телеграм), both (оба)')
+    parser.add_argument('--port', type=int, default=5000,
+                        help='Порт для веб-приложения (по умолчанию 5000)')
 
-            print("⚠️ Бот остановлен. Перезапуск через 10 секунд...")
-            time.sleep(10)
+    args = parser.parse_args()
 
-        except Exception as e:
-            print(f"❌ Ошибка при запуске бота: {e}")
-            time.sleep(10)
+    if args.mode == 'bot':
+        # Запуск только бота
+        print("🤖 Запуск только Telegram бота")
+        from telegram_bot import run_bot
+        import asyncio
+        asyncio.run(run_bot())
+
+    elif args.mode == 'web':
+        # Запуск только веб-приложения
+        print("🌐 Запуск только веб-приложения")
+        from app import create_app
+        app = create_app()
+        app.run(host="0.0.0.0", port=args.port, debug=False, use_reloader=False)
+
+    else:  # both
+        # Запуск и бота, и веб-приложения
+        print("🚀 Запуск VacBot в полном режиме...")
+
+        # Запускаем веб-приложение в основном потоке
+        from app import create_app
+        import threading
+        import asyncio
+        from telegram_bot import run_bot
+
+        # Запускаем бота в отдельном потоке
+        def run_bot_thread():
+            asyncio.run(run_bot())
+
+        bot_thread = threading.Thread(target=run_bot_thread, daemon=True)
+        bot_thread.start()
+        print("✅ Telegram бот запущен в фоновом режиме")
+
+        # Запускаем Flask
+        app = create_app()
+        print(f"🌐 Веб-приложение запущено на порту {args.port}")
+        app.run(host="0.0.0.0", port=args.port, debug=False, use_reloader=False)
 
 
 if __name__ == "__main__":
-    bot_token = os.getenv("TELEGRAM_BOT_TOKEN")
-    if bot_token and bot_token != "your_token_here":
-        # Запускаем бота в отдельном потоке
-        bot_thread = threading.Thread(target=run_bot_with_auto_restart, daemon=True)
-        bot_thread.start()
-        print("🤖 Telegram-бот запущен в фоновом режиме")
-    else:
-        print("⚠️ TELEGRAM_BOT_TOKEN не задан. Бот не запущен.")
-
-    app.run(host="0.0.0.0", port=5000, debug=False, use_reloader=False)
+    main()

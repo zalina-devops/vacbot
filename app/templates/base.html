@@ -4,26 +4,40 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% block title %}VacBot{% endblock %}</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=1003">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
   <nav class="navbar">
     <div class="nav-left">
       <div class="logo">
-        <span class="logo-pill">VacBot</span>
-        <span class="logo-sub">карьерный трекер</span>
-      </div>
+            <span class="logo-pill">VacBot</span>
+            <span style="color: #ffffff; font-size: 12px; font-weight: 600; text-shadow: 0 0 4px #7c3aed;">карьерный трекер</span>
+        </div>
       <div class="nav-tabs">
-        <a href="{{ url_for('main.index') }}" class="ntab {% if request.endpoint == 'main.index' %}active{% endif %}">Канбан</a>
-        <a href="{{ url_for('main.vacancies_page') }}" class="ntab {% if request.endpoint == 'main.vacancies_page' %}active{% endif %}">Вакансии</a>
-        <a href="{{ url_for('main.profile_page') }}" class="ntab {% if request.endpoint == 'main.profile_page' %}active{% endif %}">Профиль</a>
-        <a href="{{ url_for('main.cover_letter_page') }}" class="ntab {% if request.endpoint == 'main.cover_letter_page' %}active{% endif %}">Сопроводительное письмо</a>
-        <a href="{{ url_for('main.search_queries_page') }}" class="ntab {% if request.endpoint == 'main.search_queries_page' %}active{% endif %}">Поисковые запросы</a>
-        <a href="{{ url_for('main.stopwords_page') }}" class="ntab {% if request.endpoint == 'main.stopwords_page' %}active{% endif %}">Стоп-слова</a>
+        <a href="{{ url_for('main.index') }}" class="ntab {% if request.endpoint == 'main.index' %}active{% endif %}">
+            Канбан
+        </a>
+        <a href="{{ url_for('main.vacancies_page') }}" class="ntab {% if request.endpoint == 'main.vacancies_page' %}active{% endif %}">
+            Вакансии
+        </a>
+        <a href="{{ url_for('main.cover_letter_page') }}" class="ntab marquee {% if request.endpoint == 'main.cover_letter_page' %}active{% endif %}">
+            <span class="marquee-content">
+                Сопроводительное письмо &nbsp;&nbsp;
+                Сопроводительное письмо &nbsp;&nbsp;
+                Сопроводительное письмо &nbsp;&nbsp;
+            </span>
+        </a>
+        <a href="{{ url_for('main.profile_page') }}" class="ntab {% if request.endpoint == 'main.profile_page' %}active{% endif %}">
+            Профиль
+        </a>
+        <a href="{{ url_for('main.manage_filters') }}" class="ntab {% if request.endpoint == 'main.manage_filters' %}active{% endif %}">
+            Настройки
+        </a>
       </div>
     </div>
     <div class="nav-right">
-      <span class="nav-time" id="last-update">загрузка...</span>
+      <span id="last-update" style="background: #7c3aed; color: white; font-weight: 600; padding: 4px 12px; border-radius: 20px; font-size: 12px;">загрузка...</span>
       <button class="nav-btn" onclick="runParser()">↻ Обновить</button>
     </div>
   </nav>
@@ -33,6 +47,19 @@
   </main>
 
   <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      <script>
+        {% for category, message in messages %}
+          if (typeof showNotification === 'function') {
+            showNotification('{{ message }}', '{{ category }}');
+          } else {
+            alert('{{ message }}');
+          }
+        {% endfor %}
+      </script>
+    {% endif %}
+  {% endwith %}
   {% block scripts %}{% endblock %}
 </body>
 </html>

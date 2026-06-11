@@ -5,9 +5,9 @@ from datetime import datetime
 class Vacancy(db.Model):
     __tablename__ = 'vacancies'
 
-    id = db.Column(db.String(50), primary_key=True)
-    source = db.Column(db.String(50), nullable=False)
-    title = db.Column(db.String(500), nullable=False)
+    id = db.Column(db.String(100), primary_key=True)
+    source = db.Column(db.String(50))
+    title = db.Column(db.String(500))
     company = db.Column(db.String(200))
     salary = db.Column(db.String(100))
     city = db.Column(db.String(100))
@@ -15,11 +15,8 @@ class Vacancy(db.Model):
     published = db.Column(db.String(50))
     snippet_requirement = db.Column(db.Text)
     snippet_responsibility = db.Column(db.Text)
-
-    direction = db.Column(db.String(100), nullable=True)
-
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    direction = db.Column(db.String(50))
+    created_at = db.Column(db.DateTime, default=datetime.now)
 
     def __repr__(self):
         return f'<Vacancy {self.id}: {self.title}>'
@@ -80,12 +77,31 @@ class UserProfile(db.Model):
     preferred_directions = db.Column(db.String(200))
     expected_salary = db.Column(db.String(100))
     about = db.Column(db.Text)
-    # старые поля (если нужны)
-    status = db.Column(db.String(200))
     projects = db.Column(db.Text)
     contacts = db.Column(db.String(300))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    def __repr__(self):
+        return f'<UserProfile {self.id}: {self.name or "Не заполнен"}>'
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'name': self.name or '',
+            'specialty': self.specialty or '',
+            'education': self.education or '',
+            'experience': self.experience or '',
+            'skills': self.skills or '',
+            'languages': self.languages or '',
+            'preferred_directions': self.preferred_directions or '',
+            'expected_salary': self.expected_salary or '',
+            'about': self.about or '',
+            'projects': self.projects or '',
+            'contacts': self.contacts or '',
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None
+        }
 
 class CoverLetterTemplate(db.Model):
     __tablename__ = 'cover_letter_templates'

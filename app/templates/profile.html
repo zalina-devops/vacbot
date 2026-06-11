@@ -6,51 +6,119 @@
   <div style="max-width: 800px; margin: 0 auto;">
     <h1 style="margin-bottom: 10px;">Профиль пользователя</h1>
     <p style="color: var(--text2); margin-bottom: 30px;">
-      Профиль используется для генерации адаптированного резюме и ранжирования вакансий.
+      Эти данные используются AI для генерации сопроводительных писем, адаптации резюме и ранжирования вакансий. 
+      <strong>Чем подробнее заполните — тем точнее будет подбор.</strong>
     </p>
 
-    <form id="profileForm" style="background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px;">
-      <div style="margin-bottom: 15px;">
-        <label>ФИО</label>
-        <input type="text" name="name" class="tb-input" style="width: 100%;" required>
+    <form id="profileForm" style="background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px;">
+      
+      <!-- Основная информация -->
+      <div style="margin-bottom: 20px;">
+        <h3 style="color: var(--accent); margin-bottom: 12px; font-size: 14px; text-transform: uppercase; letter-spacing: 1px;">Основная информация</h3>
+        
+        <div style="margin-bottom: 15px;">
+          <label>ФИО <span style="color: #f38ba8;">*</span></label>
+          <input type="text" name="name" class="tb-input" style="width: 100%;" 
+                 placeholder="Например: Залина Алискерова" required>
+        </div>
+        
+        <div style="margin-bottom: 15px;">
+          <label>Специальность</label>
+          <input type="text" name="specialty" class="tb-input" style="width: 100%;"
+                 placeholder="Например: 09.02.07 Информационные системы и программирование">
+        </div>
+        
+        <div style="margin-bottom: 15px;">
+          <label>Образование</label>
+          <input type="text" name="education" class="tb-input" style="width: 100%;"
+                 placeholder="Например: Московский колледж, 3 курс, дистанционно">
+        </div>
       </div>
-      <div style="margin-bottom: 15px;">
-        <label>Специальность</label>
-        <input type="text" name="specialty" class="tb-input" style="width: 100%;">
-        <div class="form-text" style="color: var(--text2); font-size: 11px;">Например: 09.02.07 Информационные системы и программирование</div>
+
+      <!-- Навыки и технологии -->
+      <div style="margin-bottom: 20px;">
+        <h3 style="color: var(--accent); margin-bottom: 12px; font-size: 14px; text-transform: uppercase; letter-spacing: 1px;">Навыки и технологии</h3>
+        
+        <div style="margin-bottom: 15px;">
+          <label>Навыки (через запятую) <span style="color: #f38ba8;">*</span></label>
+          <textarea name="skills" rows="3" class="tb-input" style="width: 100%;" required
+                    placeholder="Python, Docker, Docker Compose, Git, PostgreSQL, SQL, Linux, Bash, Flask, Node.js, Express, REST API, JWT, Nginx"></textarea>
+          <div class="form-hint" style="color: var(--text2); font-size: 11px; margin-top: 4px;">
+            Укажите технологии, которыми владеете. AI будет искать их в требованиях вакансий.
+          </div>
+        </div>
+        
+        <div style="margin-bottom: 15px;">
+          <label>Языки</label>
+          <input type="text" name="languages" class="tb-input" style="width: 100%;"
+                 placeholder="Русский (родной), English (чтение документации)">
+        </div>
       </div>
-      <div style="margin-bottom: 15px;">
-        <label>Образование</label>
-        <input type="text" name="education" class="tb-input" style="width: 100%;">
+
+      <!-- Опыт и проекты -->
+      <div style="margin-bottom: 20px;">
+        <h3 style="color: var(--accent); margin-bottom: 12px; font-size: 14px; text-transform: uppercase; letter-spacing: 1px;">Опыт и проекты</h3>
+        
+        <div style="margin-bottom: 15px;">
+          <label>Опыт работы / учебные проекты</label>
+          <textarea name="experience" rows="4" class="tb-input" style="width: 100%;"
+                    placeholder="Разработка учебных проектов с фокусом на бэкенд и инфраструктуру. Опыт контейнеризации, написания тестов (Jest, Supertest), работы с PostgreSQL."></textarea>
+          <div class="form-hint" style="color: var(--text2); font-size: 11px; margin-top: 4px;">
+            Опишите свой опыт честно. Учебные проекты — это тоже опыт!
+          </div>
+        </div>
+        
+        <div style="margin-bottom: 15px;">
+          <label>Проекты (через точку с запятой)</label>
+          <textarea name="projects" rows="3" class="tb-input" style="width: 100%;"
+                    placeholder="MyFinance — fullstack приложение учёта финансов (Node.js, Express, PostgreSQL, React, Docker, 46 тестов, JWT); VacBot — парсер вакансий (Python, Flask, Docker, парсинг 3 источников, Telegram-бот, Kanban-доска, AI-генерация писем)"></textarea>
+          <div class="form-hint" style="color: var(--text2); font-size: 11px; margin-top: 4px;">
+            Название проекта — краткое описание (стек технологий, что делали вы лично).
+          </div>
+        </div>
       </div>
-      <div style="margin-bottom: 15px;">
-        <label>Опыт работы</label>
-        <input type="text" name="experience" class="tb-input" style="width: 100%;">
+
+      <!-- Предпочтения -->
+      <div style="margin-bottom: 20px;">
+        <h3 style="color: var(--accent); margin-bottom: 12px; font-size: 14px; text-transform: uppercase; letter-spacing: 1px;">Предпочтения</h3>
+        
+        <div style="margin-bottom: 15px;">
+          <label>Предпочтительные направления (через запятую)</label>
+          <input type="text" name="preferred_directions" class="tb-input" style="width: 100%;"
+                 placeholder="backend, devops, python, qa-automation">
+          <div class="form-hint" style="color: var(--text2); font-size: 11px; margin-top: 4px;">
+            Используется для ранжирования вакансий. Например: backend, devops, python.
+          </div>
+        </div>
+        
+        <div style="margin-bottom: 15px;">
+          <label>Ожидаемая зарплата</label>
+          <input type="text" name="expected_salary" class="tb-input" style="width: 100%;"
+                 placeholder="Например: 40000–60000 ₽ или По договорённости">
+        </div>
       </div>
-      <div style="margin-bottom: 15px;">
-        <label>Навыки (через запятую)</label>
-        <textarea name="skills" rows="3" class="tb-input" style="width: 100%;" required></textarea>
+
+      <!-- О себе -->
+      <div style="margin-bottom: 20px;">
+        <h3 style="color: var(--accent); margin-bottom: 12px; font-size: 14px; text-transform: uppercase; letter-spacing: 1px;">О себе</h3>
+        
+        <div style="margin-bottom: 15px;">
+          <label>Кратко о себе</label>
+          <textarea name="about" rows="4" class="tb-input" style="width: 100%;"
+                    placeholder="Студентка 3 курса, 18 лет. Увлекаюсь бэкенд-разработкой и DevOps-практиками. Создаю проекты с Docker-контейнеризацией, пишу тесты, работаю с PostgreSQL. Готова к удалённой стажировке."></textarea>
+          <div class="form-hint" style="color: var(--text2); font-size: 11px; margin-top: 4px;">
+            Этот текст AI будет адаптировать под каждую вакансию. Напишите искренне, без шаблонов.
+          </div>
+        </div>
       </div>
-      <div style="margin-bottom: 15px;">
-        <label>Языки (через запятую)</label>
-        <input type="text" name="languages" class="tb-input" style="width: 100%;">
-      </div>
-      <div style="margin-bottom: 15px;">
-        <label>Предпочтительные направления (через запятую)</label>
-        <input type="text" name="preferred_directions" class="tb-input" style="width: 100%;">
-        <div class="form-text" style="color: var(--text2);">Например: QA, Python-разработка, Техподдержка</div>
-      </div>
-      <div style="margin-bottom: 15px;">
-        <label>Ожидаемая зарплата</label>
-        <input type="text" name="expected_salary" class="tb-input" style="width: 100%;">
-      </div>
-      <div style="margin-bottom: 15px;">
-        <label>О себе</label>
-        <textarea name="about" rows="3" class="tb-input" style="width: 100%;"></textarea>
-      </div>
-      <div style="display: flex; gap: 10px; justify-content: space-between;">
-        <button type="submit" class="nav-btn" style="background: var(--bg3);">💾 Сохранить профиль</button>
-        <button type="button" id="loadDefaultBtn" class="nav-btn">↺ Загрузить по умолчанию</button>
+
+      <!-- Кнопки -->
+      <div style="display: flex; gap: 10px; justify-content: space-between; flex-wrap: wrap;">
+        <div style="display: flex; gap: 10px;">
+          <button type="submit" class="nav-btn" style="background: var(--accent); color: var(--bg1); font-weight: 600;">💾 Сохранить профиль</button>
+          <button type="button" id="loadDefaultBtn" class="nav-btn">↺ Загрузить пример</button>
+        </div>
+        <button type="button" id="clearBtn" class="nav-btn" style="background: transparent; border: 1px solid var(--border);">🗑 Очистить</button>
       </div>
     </form>
 
@@ -60,6 +128,9 @@
       <div id="matchStats">
         <div style="color: var(--text2);">Загрузка...</div>
       </div>
+      <div id="profileImpact" style="margin-top: 15px; padding-top: 15px; border-top: 1px solid var(--border);">
+        <!-- Здесь будет информация о влиянии профиля -->
+      </div>
     </div>
   </div>
 </div>
@@ -67,34 +138,53 @@
 <script>
   // Загрузка профиля
   async function loadProfile() {
-    const resp = await fetch('/api/profile');
-    const data = await resp.json();
-    document.querySelector('[name="name"]').value = data.name;
-    document.querySelector('[name="specialty"]').value = data.specialty;
-    document.querySelector('[name="education"]').value = data.education;
-    document.querySelector('[name="experience"]').value = data.experience;
-    document.querySelector('[name="skills"]').value = data.skills;
-    document.querySelector('[name="languages"]').value = data.languages;
-    document.querySelector('[name="preferred_directions"]').value = data.preferred_directions;
-    document.querySelector('[name="expected_salary"]').value = data.expected_salary;
-    document.querySelector('[name="about"]').value = data.about;
+    try {
+      const resp = await fetch('/api/profile');
+      const data = await resp.json();
+      
+      // Заполняем все поля, включая новое projects
+      const fields = ['name', 'specialty', 'education', 'experience', 'skills', 
+                      'languages', 'preferred_directions', 'expected_salary', 'about', 'projects'];
+      fields.forEach(field => {
+        const el = document.querySelector(`[name="${field}"]`);
+        if (el && data[field] !== undefined) {
+          el.value = data[field] || '';
+        }
+      });
+    } catch (err) {
+      console.error('Ошибка загрузки профиля:', err);
+      showToast('Не удалось загрузить профиль', 'error');
+    }
   }
 
   // Сохранение профиля
   document.getElementById('profileForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     const formData = new FormData(e.target);
+    
     const profile = {
-      name: formData.get('name'),
-      specialty: formData.get('specialty'),
-      education: formData.get('education'),
-      experience: formData.get('experience'),
-      skills: formData.get('skills'),
-      languages: formData.get('languages'),
-      preferred_directions: formData.get('preferred_directions'),
-      expected_salary: formData.get('expected_salary'),
-      about: formData.get('about')
+      name: formData.get('name').trim(),
+      specialty: formData.get('specialty').trim(),
+      education: formData.get('education').trim(),
+      experience: formData.get('experience').trim(),
+      skills: formData.get('skills').trim(),
+      languages: formData.get('languages').trim(),
+      preferred_directions: formData.get('preferred_directions').trim(),
+      expected_salary: formData.get('expected_salary').trim(),
+      about: formData.get('about').trim(),
+      projects: formData.get('projects').trim()
     };
+
+    // Простая валидация
+    if (!profile.name) {
+      showToast('Укажите ФИО', 'error');
+      return;
+    }
+    if (!profile.skills) {
+      showToast('Укажите хотя бы один навык', 'error');
+      return;
+    }
+
     try {
       const resp = await fetch('/api/profile', {
         method: 'POST',
@@ -102,30 +192,48 @@
         body: JSON.stringify(profile)
       });
       if (resp.ok) {
-        showToast('Профиль сохранён');
-        loadProfile(); // перезагрузить (на случай, если бэк добавил что-то)
+        showToast('✅ Профиль сохранён');
+        loadMatchStats();
       } else {
-        showToast('Ошибка сохранения', 'error');
+        const error = await resp.json();
+        showToast('Ошибка: ' + (error.message || 'неизвестная'), 'error');
       }
     } catch (err) {
       showToast('Ошибка сети', 'error');
     }
   });
 
-  // Загрузка профиля по умолчанию
+  // Загрузка профиля по умолчанию (пример)
   document.getElementById('loadDefaultBtn').addEventListener('click', async () => {
-    if (!confirm('Загрузить профиль по умолчанию? Текущие изменения будут потеряны.')) return;
-    try {
-      const resp = await fetch('/api/profile/default', { method: 'POST' });
-      if (resp.ok) {
-        showToast('Профиль по умолчанию загружен');
-        loadProfile();
-      } else {
-        showToast('Ошибка загрузки', 'error');
-      }
-    } catch (err) {
-      showToast('Ошибка сети', 'error');
-    }
+    if (!confirm('Загрузить пример профиля? Текущие изменения будут потеряны.')) return;
+    
+    const defaultProfile = {
+      name: 'Залина Алискерова',
+      specialty: 'Информационные системы и программирование (09.02.07)',
+      education: 'Московский колледж, 3 курс, дистанционно',
+      experience: 'Разработка учебных проектов с фокусом на бэкенд и инфраструктуру. Опыт контейнеризации, написания тестов (Jest, Supertest), работы с PostgreSQL.',
+      skills: 'Python, Docker, Docker Compose, Git, PostgreSQL, SQL, Linux, Bash, Flask, Node.js, Express, REST API, JWT, Nginx, CI/CD basics, HTML/CSS, React (базовый)',
+      languages: 'Русский (родной), English (чтение документации, базовый разговорный)',
+      preferred_directions: 'backend, devops, python, qa-automation',
+      expected_salary: 'По договорённости',
+      about: 'Студентка 3 курса, 18 лет. Увлекаюсь бэкенд-разработкой и DevOps-практиками. Создаю проекты с Docker-контейнеризацией, пишу тесты, работаю с PostgreSQL. Готова к удалённой стажировке в области бэкенда или DevOps. Быстро обучаюсь, люблю разбираться в инфраструктуре и автоматизации.',
+      projects: 'MyFinance — fullstack приложение учёта финансов (Node.js, Express, PostgreSQL, React, Docker, 46 тестов, JWT-аутентификация, тёмная тема); VacBot — парсер вакансий (Python, Flask, Docker, парсинг 3 источников, Telegram-бот, Kanban-доска, AI-генерация писем)'
+    };
+
+    Object.entries(defaultProfile).forEach(([key, value]) => {
+      const el = document.querySelector(`[name="${key}"]`);
+      if (el) el.value = value;
+    });
+    
+    showToast('Пример профиля загружен. Не забудьте сохранить!');
+  });
+
+  // Очистка формы
+  document.getElementById('clearBtn').addEventListener('click', () => {
+    if (!confirm('Очистить все поля?')) return;
+    document.querySelectorAll('#profileForm input, #profileForm textarea').forEach(el => {
+      el.value = '';
+    });
   });
 
   // Загрузка статистики совпадений
@@ -138,17 +246,28 @@
       const topDirections = Object.entries(byDirection)
         .sort((a, b) => b[1] - a[1])
         .slice(0, 5);
-      let html = `<div style="font-size: 14px;">Всего вакансий: <strong>${total}</strong></div>`;
+      
+      let html = `<div style="font-size: 14px;">Всего вакансий в базе: <strong>${total}</strong></div>`;
+      
       if (topDirections.length) {
-        html += `<div style="margin-top: 10px;"><strong>Топ направлений:</strong><ul>`;
+        html += `<div style="margin-top: 10px;"><strong>Топ направлений:</strong><ul style="margin-top: 5px; padding-left: 20px;">`;
         topDirections.forEach(([dir, count]) => {
           html += `<li>${dir}: ${count}</li>`;
         });
         html += `</ul></div>`;
-      } else {
-        html += `<div style="margin-top: 10px; color: var(--text2);">Нет данных о направлениях</div>`;
       }
+      
       document.getElementById('matchStats').innerHTML = html;
+
+      // Информация о влиянии профиля
+      const profileResp = await fetch('/api/profile');
+      const profile = await profileResp.json();
+      const hasProfile = profile.name && profile.skills;
+      
+      document.getElementById('profileImpact').innerHTML = hasProfile 
+        ? `<div style="color: var(--accent);">✅ Профиль заполнен — AI может генерировать персонализированные письма и адаптировать резюме</div>`
+        : `<div style="color: #f38ba8;">⚠️ Заполните профиль, чтобы AI мог адаптировать письма под вакансии</div>`;
+        
     } catch (err) {
       console.error(err);
       document.getElementById('matchStats').innerHTML = '<div style="color: var(--text2);">Ошибка загрузки статистики</div>';

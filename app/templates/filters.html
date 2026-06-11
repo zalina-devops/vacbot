@@ -1,0 +1,446 @@
+{% extends "base.html" %}
+
+{% block title %}Настройки — VacBot{% endblock %}
+
+{% block content %}
+<div class="filters-container">
+    <div class="filters-header">
+        <h1>Настройки приложения</h1>
+        <p>Управляй фильтрацией вакансий и администрированием базы данных</p>
+    </div>
+
+    <form method="POST" action="{{ url_for('main.save_filters') }}" id="filtersForm">
+        <!-- Фильтры вакансий - ДВА БЛОКА РЯДОМ -->
+        <div class="settings-card">
+            <h2>Фильтры вакансий</h2>
+            <p class="hint">Эти слова парсер будет использовать для отбора вакансий. Изменения применяются при следующем запуске.</p>
+
+            <!-- ДВЕ КОЛОНКИ РЯДОМ -->
+            <div class="filters-two-columns">
+
+                <!-- ЛЕВАЯ КОЛОНКА: Исключения -->
+                <div class="filter-column filter-column-exclude">
+                    <div class="column-header">
+                        <span class="column-icon">🚫</span>
+                        <span class="column-title">Исключать вакансии с этими словами</span>
+                    </div>
+                    <div class="chips-container" id="blacklist-container">
+                        {% for word in blacklist %}
+                        <div class="chip chip-exclude" data-value="{{ word }}">
+                            <span class="chip-text">{{ word }}</span>
+                            <button type="button" class="chip-remove" onclick="removeChip(this)">✖</button>
+                            <input type="hidden" name="blacklist[]" value="{{ word }}">
+                        </div>
+                        {% else %}
+                        <div class="empty-chips">Нет слов в исключениях</div>
+                        {% endfor %}
+                    </div>
+                    <div class="add-chip-wrapper">
+                        <input type="text" class="add-chip-input" id="blacklist-input" placeholder="например, колл-центр"
+                               onkeypress="if(event.key==='Enter'){addChip('blacklist'); return false;}">
+                        <button type="button" class="add-chip-btn" onclick="addChip('blacklist')">+ Добавить</button>
+                    </div>
+                </div>
+
+                <!-- ПРАВАЯ КОЛОНКА: Разрешенные -->
+                <div class="filter-column filter-column-allow">
+                    <div class="column-header">
+                        <span class="column-icon">✅</span>
+                        <span class="column-title">Разрешать (Приоритет)</span>
+                    </div>
+                    <div class="chips-container" id="whitelist-container">
+                        {% for word in whitelist %}
+                        <div class="chip chip-allow" data-value="{{ word }}">
+                            <span class="chip-text">{{ word }}</span>
+                            <button type="button" class="chip-remove" onclick="removeChip(this)">✖</button>
+                            <input type="hidden" name="whitelist[]" value="{{ word }}">
+                        </div>
+                        {% else %}
+                        <div class="empty-chips">Нет разрешенных слов</div>
+                        {% endfor %}
+                    </div>
+                    <div class="add-chip-wrapper">
+                        <input type="text" class="add-chip-input" id="whitelist-input" placeholder="например, python"
+                               onkeypress="if(event.key==='Enter'){addChip('whitelist'); return false;}">
+                        <button type="button" class="add-chip-btn" onclick="addChip('whitelist')">+ Добавить</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="info-note">
+                💡 Если слово есть в разрешенных, вакансия будет сохранена, даже если она попала в исключения.
+            </div>
+
+            <div class="form-buttons">
+                <button type="submit" class="btn-save">💾 Сохранить фильтры</button>
+                <button type="button" class="btn-reset" onclick="resetForm()">🔄 Сбросить</button>
+            </div>
+        </div>
+
+        <!-- Администрирование -->
+        <div class="admin-card">
+            <h2>Администрирование</h2>
+            <p class="warning">⚠️ Эти действия необратимы. Используйте с осторожностью.</p>
+            <div class="admin-buttons">
+                <button type="button" class="btn-danger" onclick="rebuildDatabase()">⚠️ Полный сброс БД</button>
+                <button type="button" class="btn-backup" onclick="downloadBackup()">💾 Скачать бэкап</button>
+            </div>
+        </div>
+    </form>
+</div>
+
+<style>
+/* Контейнер для двух колонок */
+.filters-two-columns {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    margin-bottom: 20px;
+}
+
+/* Каждая колонка */
+.filter-column {
+    background: rgba(0, 0, 0, 0.25);
+    border-radius: 16px;
+    padding: 18px;
+    transition: all 0.3s ease;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+/* Подсветка при наведении на колонку исключений */
+.filter-column-exclude:hover {
+    border-color: rgba(239, 68, 68, 0.5);
+    background: rgba(239, 68, 68, 0.05);
+    box-shadow: 0 4px 20px rgba(239, 68, 68, 0.15);
+}
+
+/* Подсветка при наведении на колонку разрешенных */
+.filter-column-allow:hover {
+    border-color: rgba(124, 58, 237, 0.6);
+    background: rgba(124, 58, 237, 0.05);
+    box-shadow: 0 4px 20px rgba(124, 58, 237, 0.15);
+}
+
+.column-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.column-icon {
+    font-size: 20px;
+}
+
+.column-title {
+    font-weight: 600;
+    font-size: 14px;
+    color: #e0e0e0;
+}
+
+/* Контейнер для чипов */
+.chips-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 16px;
+    min-height: 60px;
+}
+
+/* Стили чипов */
+.chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border-radius: 20px;
+    padding: 5px 10px;
+    font-size: 12px;
+    transition: all 0.2s;
+}
+
+.chip-exclude {
+    background: rgba(239, 68, 68, 0.2);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.chip-exclude:hover {
+    transform: translateY(-1px);
+    background: rgba(239, 68, 68, 0.35);
+    border-color: #ef4444;
+}
+
+.chip-allow {
+    background: rgba(124, 58, 237, 0.2);
+    border: 1px solid rgba(124, 58, 237, 0.3);
+}
+
+.chip-allow:hover {
+    transform: translateY(-1px);
+    background: rgba(124, 58, 237, 0.35);
+    border-color: #7c3aed;
+}
+
+.chip-text {
+    color: #e0e0e0;
+    font-size: 12px;
+}
+
+.chip-remove {
+    background: none;
+    border: none;
+    color: #f87171;
+    cursor: pointer;
+    font-size: 11px;
+    padding: 2px 4px;
+    border-radius: 50%;
+    transition: all 0.2s;
+}
+
+.chip-remove:hover {
+    background: rgba(239, 68, 68, 0.3);
+    color: #ff6b6b;
+}
+
+.empty-chips {
+    color: #6b6b7b;
+    font-style: italic;
+    font-size: 12px;
+    padding: 8px 0;
+    text-align: center;
+}
+
+/* Добавление слов */
+.add-chip-wrapper {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.add-chip-input {
+    flex: 1;
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 20px;
+    padding: 8px 14px;
+    color: white;
+    font-size: 12px;
+    transition: all 0.2s;
+}
+
+.add-chip-input:focus {
+    outline: none;
+    border-color: #7c3aed;
+    background: rgba(0, 0, 0, 0.6);
+}
+
+.add-chip-input::placeholder {
+    color: #6b6b7b;
+}
+
+.add-chip-btn {
+    background: rgba(124, 58, 237, 0.25);
+    border: 1px solid rgba(124, 58, 237, 0.3);
+    border-radius: 20px;
+    padding: 8px 18px;
+    color: #c4b5fd;
+    cursor: pointer;
+    font-size: 12px;
+    transition: all 0.2s;
+    white-space: nowrap;
+}
+
+.add-chip-btn:hover {
+    background: rgba(124, 58, 237, 0.4);
+    transform: translateY(-1px);
+}
+
+.info-note {
+    background: rgba(245, 158, 11, 0.08);
+    border-left: 3px solid #f59e0b;
+    padding: 12px 16px;
+    border-radius: 10px;
+    font-size: 12px;
+    margin: 20px 0;
+    color: #c0c0d0;
+}
+
+/* Кнопки */
+.form-buttons {
+    display: flex;
+    gap: 16px;
+    margin-top: 20px;
+}
+
+.btn-save, .btn-reset, .btn-danger, .btn-backup {
+    padding: 10px 24px;
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 14px;
+    transition: all 0.2s;
+}
+
+.btn-save {
+    background: linear-gradient(135deg, #7c3aed, #a855f7);
+    color: white;
+}
+
+.btn-save:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(124, 58, 237, 0.4);
+}
+
+.btn-reset, .btn-backup {
+    background: rgba(255, 255, 255, 0.08);
+    color: #e0e0e0;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.btn-reset:hover, .btn-backup:hover {
+    background: rgba(255, 255, 255, 0.12);
+    transform: translateY(-1px);
+}
+
+.btn-danger {
+    background: rgba(239, 68, 68, 0.15);
+    color: #f87171;
+    border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.btn-danger:hover {
+    background: rgba(239, 68, 68, 0.25);
+    transform: translateY(-1px);
+}
+
+.admin-card {
+    background: rgba(30, 37, 53, 0.6);
+    border-radius: 20px;
+    padding: 24px;
+    border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+.admin-card h2 {
+    font-size: 20px;
+    margin-bottom: 8px;
+    color: #c4b5fd;
+}
+
+.admin-card .warning {
+    color: #f87171;
+    font-size: 13px;
+    margin-bottom: 20px;
+}
+
+.admin-buttons {
+    display: flex;
+    gap: 16px;
+}
+
+/* Адаптивность */
+@media (max-width: 700px) {
+    .filters-two-columns {
+        grid-template-columns: 1fr;
+        gap: 20px;
+    }
+
+    .form-buttons, .admin-buttons {
+        flex-direction: column;
+    }
+
+    .btn-save, .btn-reset, .btn-danger, .btn-backup {
+        width: 100%;
+        text-align: center;
+    }
+}
+</style>
+
+<script>
+function addChip(type) {
+    const input = document.getElementById(`${type}-input`);
+    const word = input.value.trim().toLowerCase();
+
+    if (!word) {
+        alert('Введите слово');
+        return;
+    }
+
+    const container = document.getElementById(`${type}-container`);
+
+    // Проверяем дубликаты
+    const existing = Array.from(container.querySelectorAll('.chip')).some(chip =>
+        chip.querySelector('.chip-text')?.textContent === word
+    );
+
+    if (existing) {
+        alert('Такое слово уже добавлено');
+        input.value = '';
+        return;
+    }
+
+    // Удаляем сообщение "Нет слов"
+    const emptyMsg = container.querySelector('.empty-chips');
+    if (emptyMsg) emptyMsg.remove();
+
+    const chip = document.createElement('div');
+    chip.className = type === 'whitelist' ? 'chip chip-allow' : 'chip chip-exclude';
+    chip.innerHTML = `
+        <span class="chip-text">${escapeHtml(word)}</span>
+        <button type="button" class="chip-remove" onclick="removeChip(this)">✖</button>
+        <input type="hidden" name="${type}[]" value="${escapeHtml(word)}">
+    `;
+    container.appendChild(chip);
+    input.value = '';
+}
+
+function removeChip(btn) {
+    const chip = btn.closest('.chip');
+    const container = chip.parentElement;
+    chip.remove();
+
+    // Если контейнер опустел, добавляем сообщение
+    if (container.children.length === 0) {
+        const emptyMsg = document.createElement('div');
+        emptyMsg.className = 'empty-chips';
+        emptyMsg.textContent = container.id === 'whitelist-container' ? 'Нет разрешенных слов' : 'Нет слов в исключениях';
+        container.appendChild(emptyMsg);
+    }
+}
+
+function resetForm() {
+    if (confirm('Сбросить все изменения? Несохраненные данные будут потеряны.')) {
+        location.reload();
+    }
+}
+
+function rebuildDatabase() {
+    if (confirm('⚠️ Полная очистка БД. Все вакансии будут удалены. Продолжить?')) {
+        if (confirm('Это действие нельзя отменить. Точно?')) {
+            fetch('/api/rebuild-database', { method: 'POST' })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        alert('✅ База данных пересобрана!');
+                        location.reload();
+                    } else {
+                        alert('❌ Ошибка: ' + data.message);
+                    }
+                })
+                .catch(() => alert('❌ Ошибка при пересборке'));
+        }
+    }
+}
+
+function downloadBackup() {
+    window.location.href = '/api/download-backup';
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+</script>
+{% endblock %}

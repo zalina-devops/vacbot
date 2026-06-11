@@ -16,14 +16,14 @@
       <option value="{{ s }}" {% if s == current_source %}selected{% endif %}>{{ s }}</option>
       {% endfor %}
     </select>
-    <input class="tb-input" id="f-search" placeholder="Поиск..." value="{{ search }}" oninput="applyFilter()">
+    <input class="tb-input" id="f-search" placeholder="Поиск..." oninput="filterVacancies()">
     <div class="tb-sep"></div>
-    <span class="tb-count">{{ vacancies | length }} вакансий</span>
+    <span class="tb-count" id="vacancies-count">{{ vacancies | length }} вакансий</span>
   </div>
 
-  <div class="cards-grid">
+  <div class="cards-grid" id="vacancies-container">
     {% for v in vacancies %}
-    <div class="vcard {% if v.starred %}starred{% endif %}" data-id="{{ v.id }}">
+    <div class="vcard {% if v.starred %}starred{% endif %}" data-id="{{ v.id }}" data-title="{{ v.title|lower }}" data-company="{{ v.company|lower }}" data-direction="{{ v.direction or 'Другое' }}" data-source="{{ v.source }}">
         <div class="vc-content">
             <div class="vc-header">
                 <div class="vc-title">{{ v.title }}</div>
@@ -46,12 +46,12 @@
         </div>
         <div class="vc-actions">
             <div class="vc-actions-row">
-                <a href="{{ v.url }}" target="_blank" class="act-btn act-open">🔗 Открыть</a>
-                <button class="act-btn act-letter" onclick="generateAICoverLetter('{{ v.id }}')">✉️ Письмо</button>
+                <a href="{{ v.url }}" target="_blank" class="act-btn act-open">Открыть</a>
+                <button class="act-btn act-letter" onclick="generateAICoverLetter('{{ v.id }}')">Письмо</button>
             </div>
             <div class="vc-actions-row">
-                <button class="act-btn act-adapt" onclick="adaptResume('{{ v.id }}')">📄 Адаптировать</button>
-                <button class="act-btn act-delete" onclick="deleteVacancy('{{ v.id }}')">🗑️ Удалить</button>
+                <button class="act-btn act-adapt" onclick="adaptResume('{{ v.id }}')">Адаптировать</button>
+                <button class="act-btn act-delete" onclick="deleteVacancy('{{ v.id }}')">Удалить</button>
             </div>
         </div>
     </div>
@@ -64,15 +64,64 @@
 
 {% block scripts %}
 <script>
+// Фильтрация на клиенте (мгновенно)
+function filterVacancies() {
+    const searchTerm = document.getElementById('f-search').value.toLowerCase();
+    const directionFilter = document.getElementById('f-direction').value;
+    const sourceFilter = document.getElementById('f-source').value;
+
+    const vacancies = document.querySelectorAll('.vcard');
+    let visibleCount = 0;
+
+    vacancies.forEach(vacancy => {
+        const title = vacancy.dataset.title || '';
+        const company = vacancy.dataset.company || '';
+        const direction = vacancy.dataset.direction || '';
+        const source = vacancy.dataset.source || '';
+
+        const matchesSearch = searchTerm === '' ||
+                             title.includes(searchTerm) ||
+                             company.includes(searchTerm);
+
+        const matchesDirection = directionFilter === '' || direction === directionFilter;
+        const matchesSource = sourceFilter === '' || source === sourceFilter;
+
+        if (matchesSearch && matchesDirection && matchesSource) {
+            vacancy.style.display = '';
+            visibleCount++;
+        } else {
+            vacancy.style.display = 'none';
+        }
+    });
+
+    document.getElementById('vacancies-count').textContent = visibleCount + ' вакансий';
+
+    // Показываем сообщение если ничего не найдено
+    const container = document.getElementById('vacancies-container');
+    let noResultsMsg = document.getElementById('no-results-msg');
+
+    if (visibleCount === 0 && vacancies.length > 0) {
+        if (!noResultsMsg) {
+            noResultsMsg = document.createElement('p');
+            noResultsMsg.id = 'no-results-msg';
+            noResultsMsg.style.cssText = 'color:var(--text2);padding:2rem 0';
+            noResultsMsg.textContent = 'Вакансий не найдено. Попробуй изменить фильтры.';
+            container.appendChild(noResultsMsg);
+        }
+    } else if (noResultsMsg) {
+        noResultsMsg.remove();
+    }
+}
+
+// Применение фильтров с серверной перезагрузкой (только для селектов)
 function applyFilter() {
-  const d = document.getElementById('f-direction').value;
-  const s = document.getElementById('f-source').value;
-  const q = document.getElementById('f-search').value;
-  const params = new URLSearchParams();
-  if (d) params.set('direction', d);
-  if (s) params.set('source', s);
-  if (q) params.set('search', q);
-  window.location.href = '/vacancies?' + params.toString();
+    const d = document.getElementById('f-direction').value;
+    const s = document.getElementById('f-source').value;
+    const params = new URLSearchParams();
+    if (d) params.set('direction', d);
+    if (s) params.set('source', s);
+    // search НЕ отправляем на сервер, так как он клиентский
+    window.location.href = '/vacancies?' + params.toString();
 }
 </script>
 {% endblock %}

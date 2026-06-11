@@ -1,7 +1,10 @@
+# app\__init__.py
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from app.config import Config
+import logging
 
+logger = logging.getLogger(__name__)
 db = SQLAlchemy()
 
 
@@ -15,7 +18,7 @@ def create_app():
 
     with app.app_context():
         db.create_all()
-        print("✅ База данных инициализирована")
+        logger.debug("✅ База данных инициализирована")
 
     from app.routes import main
     app.register_blueprint(main)
