@@ -109,7 +109,6 @@ async function updateStatus(id, newStatus) {
 
       const card = document.querySelector(`.kcard[data-id="${id}"]`);
       if (card) {
-        // Обновляем атрибут data-status
         card.dataset.status = newStatus;
 
         const starBtn = card.querySelector('.star-btn');
@@ -280,38 +279,53 @@ document.addEventListener('DOMContentLoaded', function() {
     .catch(function() {});
 });
 
-// Адаптация резюме
+// ========== АДАПТАЦИЯ РЕЗЮМЕ ==========
 async function adaptResume(vacancyId) {
-    showToast('Адаптирую резюме...');
+    showLoadingModal('Адаптация резюме', '🤖 Искусственный интеллект анализирует вакансию и ваш профиль...');
+    
+    // Даём время на отрисовку модального окна
+    await new Promise(resolve => setTimeout(resolve, 50));
+    
     try {
         const res = await fetch(`/api/adapt-resume/${vacancyId}`, { method: 'POST' });
         const data = await res.json();
+        closeLoadingModal();
+        
         if (data.success) {
             showModal('Адаптированное резюме', data.text, vacancyId);
         } else {
             showToast('Ошибка: ' + (data.error || 'неизвестная'), 'error');
         }
     } catch (err) {
-        showToast('Ошибка сети', 'error');
+        closeLoadingModal();
+        showToast('Ошибка сети: ' + err.message, 'error');
     }
 }
 
-// Генерация письма через AI
+// ========== ГЕНЕРАЦИЯ ПИСЬМА ==========
 async function generateAICoverLetter(vacancyId) {
-    showToast('Генерирую письмо...');
+    showLoadingModal('Генерация письма', '✍️ ИИ составляет персонализированное сопроводительное письмо...');
+    
+    // Даём время на отрисовку модального окна
+    await new Promise(resolve => setTimeout(resolve, 50));
+    
     try {
         const res = await fetch(`/api/generate-cover-letter/${vacancyId}`, { method: 'POST' });
         const data = await res.json();
+        closeLoadingModal();
+        
         if (data.success) {
             showModal('Сопроводительное письмо', data.text);
         } else {
             showToast('Ошибка: ' + (data.error || 'неизвестная'), 'error');
         }
     } catch (err) {
-        showToast('Ошибка сети', 'error');
+        closeLoadingModal();
+        showToast('Ошибка сети: ' + err.message, 'error');
     }
 }
 
+// ========== МОДАЛЬНОЕ ОКНО ДЛЯ РЕЗУЛЬТАТА ==========
 function showModal(title, content, vacancyId = null) {
     const existing = document.getElementById('aiModal');
     if (existing) existing.remove();
@@ -340,13 +354,11 @@ function showModal(title, content, vacancyId = null) {
     `;
     document.body.appendChild(modal);
 
-    // Кнопка копирования
     modal.querySelector('.copy-btn').addEventListener('click', () => {
         navigator.clipboard.writeText(content);
         showToast('✅ Текст скопирован');
     });
 
-    // Escape для закрытия
     const escHandler = (e) => {
         if (e.key === 'Escape') {
             modal.remove();
@@ -356,6 +368,7 @@ function showModal(title, content, vacancyId = null) {
     document.addEventListener('keydown', escHandler);
 }
 
+// ========== УДАЛЕНИЕ ВАКАНСИИ ==========
 async function deleteVacancy(vacancyId) {
     if (!confirm('Удалить эту вакансию? Данные не восстанавливаются.')) return;
     try {
@@ -375,12 +388,12 @@ async function deleteVacancy(vacancyId) {
     }
 }
 
-let loadingInterval = null;
-let loadingFrame = 0;
+// ========== МОДАЛЬНОЕ ОКНО ЗАГРУЗКИ ==========
+let loadingModalElement = null;
 
 function showLoadingModal(title, message) {
     closeLoadingModal();
-
+    
     const modal = document.createElement('div');
     modal.id = 'loadingModal';
     modal.className = 'loading-modal';
@@ -403,35 +416,39 @@ function showLoadingModal(title, message) {
         </div>
     `;
     document.body.appendChild(modal);
-
-    loadingFrame = 0;
-    if (loadingInterval) clearInterval(loadingInterval);
-    loadingInterval = setInterval(() => {
+    loadingModalElement = modal;
+    
+    // Анимация точек
+    let dotsFrame = 0;
+    const dotsInterval = setInterval(() => {
         const dotsEl = document.querySelector('#loadingModal .loading-dots');
         if (dotsEl) {
-            loadingFrame = (loadingFrame + 1) % 4;
+            dotsFrame = (dotsFrame + 1) % 4;
             const dots = ['⏳', '⌛', '⏳', '⌛'];
-            dotsEl.textContent = dots[loadingFrame];
+            dotsEl.textContent = dots[dotsFrame];
         } else {
-            clearInterval(loadingInterval);
+            clearInterval(dotsInterval);
         }
     }, 400);
-
+    
+    modal._dotsInterval = dotsInterval;
+    
+    // Показываем с анимацией
     setTimeout(() => {
-        const modalEl = document.getElementById('loadingModal');
-        if (modalEl) modalEl.classList.add('show');
+        if (modal) modal.classList.add('show');
     }, 10);
 }
 
 function closeLoadingModal() {
-    if (loadingInterval) {
-        clearInterval(loadingInterval);
-        loadingInterval = null;
-    }
-    const modal = document.getElementById('loadingModal');
-    if (modal) {
+    if (loadingModalElement) {
+        const modal = loadingModalElement;
+        const interval = modal._dotsInterval;
+        if (interval) clearInterval(interval);
         modal.classList.remove('show');
-        setTimeout(() => modal.remove(), 300);
+        setTimeout(() => {
+            if (modal && modal.parentNode) modal.remove();
+        }, 300);
+        loadingModalElement = null;
     }
 }
 
