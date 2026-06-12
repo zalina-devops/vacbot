@@ -1,3 +1,34 @@
+// Очистка Markdown-символов из текста
+function cleanMarkdown(text) {
+    if (!text) return '';
+    
+    // Убираем заголовки
+    let cleaned = text.replace(/^#+\s+/gm, '');
+    
+    // Убираем жирный текст
+    cleaned = cleaned.replace(/\*\*(.*?)\*\*/g, '$1');
+    cleaned = cleaned.replace(/__(.*?)__/g, '$1');
+    
+    // Убираем курсив
+    cleaned = cleaned.replace(/\*(.*?)\*/g, '$1');
+    cleaned = cleaned.replace(/_(.*?)_/g, '$1');
+    
+    // Заменяем списки
+    cleaned = cleaned.replace(/^-\s+/gm, '• ');
+    cleaned = cleaned.replace(/^\*\s+/gm, '• ');
+    
+    // Убираем ссылки
+    cleaned = cleaned.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1');
+    
+    // Убираем код
+    cleaned = cleaned.replace(/`([^`]+)`/g, '$1');
+    
+    // Убираем множественные переносы строк
+    cleaned = cleaned.replace(/\n{3,}/g, '\n\n');
+    
+    return cleaned.trim();
+}
+
 function showToast(msg) {
   var t = document.querySelector('.toast');
   if (!t) { t = document.createElement('div'); t.className = 'toast'; document.body.appendChild(t); }
@@ -281,7 +312,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // ========== АДАПТАЦИЯ РЕЗЮМЕ ==========
 async function adaptResume(vacancyId) {
-    showLoadingModal('Адаптация резюме', '🤖 Искусственный интеллект анализирует вакансию и ваш профиль...');
+    showLoadingModal('Адаптация резюме', '🤖 ИИ анализирует вакансию и ваш профиль...');
     
     // Даём время на отрисовку модального окна
     await new Promise(resolve => setTimeout(resolve, 50));
@@ -330,6 +361,9 @@ function showModal(title, content, vacancyId = null) {
     const existing = document.getElementById('aiModal');
     if (existing) existing.remove();
 
+    // Очищаем Markdown перед отображением
+    const cleanContent = cleanMarkdown(content);
+    
     const isResume = title.includes('резюме');
 
     const modal = document.createElement('div');
@@ -342,7 +376,7 @@ function showModal(title, content, vacancyId = null) {
                 <h3>${title}</h3>
                 <button class="close-modal" onclick="document.getElementById('aiModal').remove()">&times;</button>
             </div>
-            <div class="ai-modal-body">${content.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>
+            <div class="ai-modal-body">${cleanContent.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>
             <div class="ai-modal-footer">
                 ${vacancyId && isResume ?
                     `<button class="nav-btn pdf-btn" onclick="window.open('/api/resume/pdf/${vacancyId}', '_blank')">Для себя (с метками)</button>
@@ -354,8 +388,9 @@ function showModal(title, content, vacancyId = null) {
     `;
     document.body.appendChild(modal);
 
+    // Копируем ОЧИЩЕННЫЙ текст
     modal.querySelector('.copy-btn').addEventListener('click', () => {
-        navigator.clipboard.writeText(content);
+        navigator.clipboard.writeText(cleanContent);
         showToast('✅ Текст скопирован');
     });
 
