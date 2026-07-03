@@ -2,11 +2,21 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-# Установка системных зависимостей (если нужны для psycopg2 и других пакетов)
+# Установка системных зависимостей для psycopg2, Playwright и WeasyPrint
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     libpq-dev \
+    wget \
+    gnupg \
+    libpango1.0-0 \
+    libjpeg62-turbo-dev \
+    libpng-dev \
     && rm -rf /var/lib/apt/lists/*
+
+# Установка Playwright и браузеров
+RUN pip install --no-cache-dir playwright && \
+    playwright install chromium && \
+    playwright install-deps
 
 # Копируем только requirements.txt для кэширования слоёв
 COPY requirements.txt .
@@ -20,8 +30,8 @@ COPY . .
 # Создаём папку для данных
 RUN mkdir -p /app/data
 
-# Открываем порт
-EXPOSE 5000
+# Открываем порт для Railway
+EXPOSE 8080
 
-# Запуск приложения
-CMD ["python", "run.py"]
+# Запуск приложения с портом 8080 для Railway
+CMD ["python", "run.py", "--mode", "both", "--port", "8080"]
