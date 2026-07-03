@@ -13,7 +13,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libpng-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Установка Playwright и браузеров
+# Установка Playwright
 RUN pip install --no-cache-dir playwright && \
     playwright install chromium && \
     playwright install-deps
