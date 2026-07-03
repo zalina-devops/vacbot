@@ -8,10 +8,12 @@ def main():
     parser = argparse.ArgumentParser(description='VacBot - система поиска вакансий')
     parser.add_argument('--mode', choices=['web', 'bot', 'both'], default='both',
                         help='Режим запуска: web (только сайт), bot (только телеграм), both (оба)')
-    parser.add_argument('--port', type=int, default=5000,
-                        help='Порт для веб-приложения (по умолчанию 5000)')
+    parser.add_argument('--port', type=int, default=None,
+                        help='Порт для веб-приложения (по умолчанию из переменной PORT или 5000)')
 
     args = parser.parse_args()
+    
+    port = int(os.environ.get("PORT", args.port or 5000))
 
     if args.mode == 'bot':
         # Запуск только бота
@@ -25,13 +27,11 @@ def main():
         print("🌐 Запуск только веб-приложения")
         from app import create_app
         app = create_app()
-        app.run(host="0.0.0.0", port=args.port, debug=False, use_reloader=False)
+        app.run(host="0.0.0.0", port=port, debug=False, use_reloader=False)
 
-    else:  # both
-        # Запуск и бота, и веб-приложения
+    else: 
         print("🚀 Запуск VacBot в полном режиме...")
 
-        # Запускаем веб-приложение в основном потоке
         from app import create_app
         import threading
         import asyncio
@@ -47,8 +47,8 @@ def main():
 
         # Запускаем Flask
         app = create_app()
-        print(f"🌐 Веб-приложение запущено на порту {args.port}")
-        app.run(host="0.0.0.0", port=args.port, debug=False, use_reloader=False)
+        print(f"🌐 Веб-приложение запущено на порту {port}")
+        app.run(host="0.0.0.0", port=port, debug=False, use_reloader=False)
 
 
 if __name__ == "__main__":
