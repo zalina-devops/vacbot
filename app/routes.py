@@ -627,7 +627,7 @@ def generate_resume_pdf(vacancy_id):
         {% endif %}
 
         <div class="footer">
-            <p>GitHub: <a href="https://github.com/zalina-devops">github.com/zalina-devops</a></p>
+            <p>GitHub: <a href="https://github.com/zali-dev">github.com/zali-dev</a></p>
             {% if not clean %}
             <p style="margin-top: 5px;">Резюме сгенерировано с помощью VacBot</p>
             {% endif %}
